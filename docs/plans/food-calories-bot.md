@@ -55,15 +55,15 @@ npm run build
 
 ### Task 4: AI модуль (OpenAI Vision)
 
-- [ ] Создать /src/ai/FoodVisionService.ts
-- [ ] Метод analyze(imageBuffer: Buffer): Promise<FoodAnalysisResult>
-- [ ] Интерфейс результата: { is_food, food_confidence, estimated_calories, description }
-- [ ] Использовать OpenAI structured outputs (JSON mode)
-- [ ] Реализовать retry с exponential backoff
-- [ ] Валидация калорий в диапазоне 10-10000 ккал
-- [ ] Graceful fallback при ошибке API
-- [ ] Логирование без секретов
-- [ ] Unit-тесты с мок-ответами
+- [x] Создать /src/ai/FoodVisionService.ts
+- [x] Метод analyze(imageBuffer: Buffer): Promise<FoodAnalysisResult>
+- [x] Интерфейс результата: { is_food, food_confidence, estimated_calories, description }
+- [x] Использовать OpenAI structured outputs (JSON mode)
+- [x] Реализовать retry с exponential backoff
+- [x] Валидация калорий в диапазоне 10-10000 ккал
+- [x] Graceful fallback при ошибке API
+- [x] Логирование без секретов
+- [x] Unit-тесты с мок-ответами
 
 ### Task 5: Telegram Bot — базовая структура
 
