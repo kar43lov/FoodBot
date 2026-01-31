@@ -315,7 +315,12 @@ export async function handlePhoto(ctx: BotContext, logger: pino.Logger): Promise
         response += `\n📝 ${analysisResult.description}`;
       }
 
-      await ctx.reply(response, { reply_parameters: { message_id: ctx.message!.message_id } });
+      const messageId = ctx.message?.message_id;
+      if (messageId) {
+        await ctx.reply(response, { reply_parameters: { message_id: messageId } });
+      } else {
+        await ctx.reply(response);
+      }
     } else {
       // Not food - set shrug reaction (using 🤷‍♂ which is in allowed emoji list)
       handlerLogger.debug('Not food, setting shrug reaction');
@@ -334,9 +339,14 @@ export async function handlePhoto(ctx: BotContext, logger: pino.Logger): Promise
 
     // Graceful error handling - inform user without crashing
     try {
-      await ctx.reply('😕 Не удалось обработать фото. Попробуйте ещё раз.', {
-        reply_parameters: { message_id: ctx.message!.message_id },
-      });
+      const errorMessageId = ctx.message?.message_id;
+      if (errorMessageId) {
+        await ctx.reply('😕 Не удалось обработать фото. Попробуйте ещё раз.', {
+          reply_parameters: { message_id: errorMessageId },
+        });
+      } else {
+        await ctx.reply('😕 Не удалось обработать фото. Попробуйте ещё раз.');
+      }
     } catch {
       // If even reply fails, just log and continue
       handlerLogger.error('Failed to send error reply');

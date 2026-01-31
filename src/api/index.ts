@@ -247,12 +247,16 @@ export async function createApiServer(
       if (!authUser && webAppData) {
         const userData = validateTelegramWebApp(webAppData, config.bot.token);
         if (userData) {
-          authUser = {
-            telegramUserId: BigInt(userData.id),
-            firstName: userData.first_name,
-            username: userData.username,
-            userId: undefined,
-          };
+          // Check auth_date freshness (24 hours)
+          const authAge = Date.now() / 1000 - userData.auth_date;
+          if (authAge <= 86400) {
+            authUser = {
+              telegramUserId: BigInt(userData.id),
+              firstName: userData.first_name,
+              username: userData.username,
+              userId: undefined,
+            };
+          }
         }
       }
 

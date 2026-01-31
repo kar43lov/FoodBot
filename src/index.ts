@@ -52,12 +52,12 @@ async function main(): Promise<void> {
   // Start bot (returns server in webhook mode)
   const botServer: FastifyInstance | void = await startBot(bot, config, logger);
 
-  // Start API server (separate from webhook server)
+  // Start API server
+  // Note: In production with webhook mode, API routes should be registered on the
+  // same Fastify server as the webhook. Currently, API is only available in development.
+  // TODO: Refactor to register API routes on webhook server in production
   let apiServer: FastifyInstance | undefined;
-  if (config.app.isProduction && !botServer) {
-    // In production with webhook, API runs on same server
-    // Bot is already listening on the port
-  } else if (!config.app.isProduction) {
+  if (!config.app.isProduction) {
     // In development, start separate API server
     apiServer = await startApiServer(config, logger);
   }

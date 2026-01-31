@@ -109,7 +109,8 @@ describe('JWT utilities', () => {
     });
 
     it('should handle Bearer with empty token', () => {
-      expect(extractBearerToken('Bearer ')).toBe('');
+      // Empty token after "Bearer " should return null for security
+      expect(extractBearerToken('Bearer ')).toBeNull();
     });
   });
 

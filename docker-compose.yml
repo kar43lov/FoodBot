@@ -40,9 +40,9 @@ services:
     container_name: food-calories-postgres
     restart: unless-stopped
     environment:
-      - POSTGRES_USER=foodbot
-      - POSTGRES_PASSWORD=foodbot
-      - POSTGRES_DB=foodbot
+      - POSTGRES_USER=${POSTGRES_USER:-foodbot}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-foodbot}
+      - POSTGRES_DB=${POSTGRES_DB:-foodbot}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
