@@ -21,9 +21,17 @@ services:
       - MODE=prod
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - TZ=${TZ:-Europe/Moscow}
+      - PORT=3000
+      - HOST=0.0.0.0
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3000/health']
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
     networks:
       - foodbot-network
 

@@ -148,12 +148,12 @@ npm run build
 
 ### Task 13: Docker и деплой
 
-- [ ] Dockerfile для приложения (multi-stage build)
-- [ ] docker-compose.yml: app + postgres
-- [ ] Healthcheck endpoint (/health)
-- [ ] Скрипт миграций при старте контейнера
-- [ ] Структурные логи (pino)
-- [ ] Graceful shutdown
+- [x] Dockerfile для приложения (multi-stage build)
+- [x] docker-compose.yml: app + postgres
+- [x] Healthcheck endpoint (/health)
+- [x] Скрипт миграций при старте контейнера
+- [x] Структурные логи (pino)
+- [x] Graceful shutdown
 
 ### Task 14: README и документация
 
