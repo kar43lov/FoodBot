@@ -47,11 +47,11 @@ npm run build
 
 ### Task 3: Конфигурация и переменные окружения
 
-- [ ] Создать /src/config/index.ts с типизированной конфигурацией
-- [ ] Валидация env переменных при старте (zod или joi)
-- [ ] Поддержка MODE=dev|prod для переключения polling/webhook
-- [ ] Настройки: BOT_TOKEN, DATABASE_URL, OPENAI_API_KEY, OPENAI_MODEL, AI_FOOD_CONFIDENCE_THRESHOLD, WEBHOOK_URL, APP_URL, LOG_LEVEL, TZ
-- [ ] Graceful fallback для опциональных переменных
+- [x] Создать /src/config/index.ts с типизированной конфигурацией
+- [x] Валидация env переменных при старте (zod или joi)
+- [x] Поддержка MODE=dev|prod для переключения polling/webhook
+- [x] Настройки: BOT_TOKEN, DATABASE_URL, OPENAI_API_KEY, OPENAI_MODEL, AI_FOOD_CONFIDENCE_THRESHOLD, WEBHOOK_URL, APP_URL, LOG_LEVEL, TZ
+- [x] Graceful fallback для опциональных переменных
 
 ### Task 4: AI модуль (OpenAI Vision)
 
