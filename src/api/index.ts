@@ -63,7 +63,13 @@ export function validateTelegramAuth(
     .update(dataCheckString)
     .digest('hex');
 
-  return calculatedHash === hash;
+  // Use timing-safe comparison to prevent timing attacks
+  try {
+    return crypto.timingSafeEqual(Buffer.from(calculatedHash), Buffer.from(hash));
+  } catch {
+    // If buffers have different lengths, comparison throws - return false
+    return false;
+  }
 }
 
 /**
@@ -98,7 +104,15 @@ export function validateTelegramWebApp(
       .update(dataCheckString)
       .digest('hex');
 
-    if (calculatedHash !== hash) return null;
+    // Use timing-safe comparison to prevent timing attacks
+    try {
+      if (!crypto.timingSafeEqual(Buffer.from(calculatedHash), Buffer.from(hash))) {
+        return null;
+      }
+    } catch {
+      // If buffers have different lengths, comparison throws - return false
+      return null;
+    }
 
     // Parse user data
     const userStr = params.get('user');
@@ -864,6 +878,14 @@ export async function createApiServer(
           description: description ?? null,
           source: source ?? MealEntrySource.WEB,
         },
+        include: {
+          user: {
+            select: {
+              firstName: true,
+              username: true,
+            },
+          },
+        },
       });
 
       logger.info({
@@ -882,6 +904,12 @@ export async function createApiServer(
         caloriesEstimated: meal.caloriesEstimated,
         description: meal.description,
         source: meal.source,
+        needsReview: meal.needsReview,
+        aiConfidence: meal.aiConfidence,
+        user: {
+          firstName: meal.user.firstName,
+          username: meal.user.username,
+        },
       });
     },
   });
@@ -984,6 +1012,14 @@ export async function createApiServer(
       const updatedMeal = await prisma.mealEntry.update({
         where: { id: mealId },
         data: updateData,
+        include: {
+          user: {
+            select: {
+              firstName: true,
+              username: true,
+            },
+          },
+        },
       });
 
       logger.info({
@@ -995,10 +1031,17 @@ export async function createApiServer(
 
       return {
         id: updatedMeal.id,
+        userId: updatedMeal.userId,
         recordedAt: updatedMeal.recordedAt.toISOString(),
         caloriesEstimated: updatedMeal.caloriesEstimated,
         description: updatedMeal.description,
+        source: updatedMeal.source,
+        aiConfidence: updatedMeal.aiConfidence,
         needsReview: updatedMeal.needsReview,
+        user: {
+          firstName: updatedMeal.user.firstName,
+          username: updatedMeal.user.username,
+        },
       };
     },
   });

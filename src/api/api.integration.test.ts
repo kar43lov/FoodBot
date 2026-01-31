@@ -462,8 +462,12 @@ describe('API Integration Tests', () => {
       const newMeal = {
         ...mockMealEntry,
         id: 'new-meal-123',
+        user: {
+          firstName: mockUser.firstName,
+          username: mockUser.username,
+        },
       };
-      vi.mocked(prisma.mealEntry.create).mockResolvedValue(newMeal);
+      vi.mocked(prisma.mealEntry.create).mockResolvedValue(newMeal as never);
 
       const response = await server.inject({
         method: 'POST',
@@ -536,7 +540,11 @@ describe('API Integration Tests', () => {
       vi.mocked(prisma.mealEntry.update).mockResolvedValue({
         ...mockMealEntry,
         caloriesEstimated: 600,
-      });
+        user: {
+          firstName: mockUser.firstName,
+          username: mockUser.username,
+        },
+      } as never);
 
       const response = await server.inject({
         method: 'PUT',
