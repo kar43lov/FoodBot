@@ -1,8 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api, Project, MealEntry, ProjectUser } from '../api/client';
 import LoadingSpinner from '../components/LoadingSpinner';
+import CalendarView from '../components/CalendarView';
+import MealDetailsModal from '../components/MealDetailsModal';
+
+interface ModalState {
+  isOpen: boolean;
+  userId: string;
+  userName: string;
+  date: string;
+  meals: MealEntry[];
+}
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -13,6 +23,13 @@ export default function ProjectDetailPage() {
   const [users, setUsers] = useState<ProjectUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [modalState, setModalState] = useState<ModalState>({
+    isOpen: false,
+    userId: '',
+    userName: '',
+    date: '',
+    meals: [],
+  });
 
   useEffect(() => {
     const loadData = async () => {
@@ -46,12 +63,39 @@ export default function ProjectDetailPage() {
     loadData();
   }, [token, id]);
 
+  // Create a map of userId -> user for quick lookup
+  const usersMap = useMemo(() => {
+    const map = new Map<string, ProjectUser>();
+    for (const user of users) {
+      map.set(user.userId, user);
+    }
+    return map;
+  }, [users]);
+
   // Calculate today's total
-  const today = new Date().toDateString();
-  const todayMeals = meals.filter(
-    (m) => new Date(m.recordedAt).toDateString() === today
-  );
-  const todayCalories = todayMeals.reduce((sum, m) => sum + m.caloriesEstimated, 0);
+  const todayStats = useMemo(() => {
+    const today = new Date().toDateString();
+    const todayMeals = meals.filter(
+      (m) => new Date(m.recordedAt).toDateString() === today
+    );
+    const todayCalories = todayMeals.reduce((sum, m) => sum + m.caloriesEstimated, 0);
+    return { meals: todayMeals, calories: todayCalories };
+  }, [meals]);
+
+  const handleCellClick = useCallback((userId: string, date: string, cellMeals: MealEntry[]) => {
+    const user = usersMap.get(userId);
+    setModalState({
+      isOpen: true,
+      userId,
+      userName: user?.firstName || 'Пользователь',
+      date,
+      meals: cellMeals,
+    });
+  }, [usersMap]);
+
+  const handleCloseModal = useCallback(() => {
+    setModalState((prev) => ({ ...prev, isOpen: false }));
+  }, []);
 
   if (isLoading) {
     return (
@@ -84,7 +128,7 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="min-h-screen p-4">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center mb-6">
           <button
@@ -119,15 +163,25 @@ export default function ProjectDetailPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Сегодня</p>
-              <p className="text-3xl font-bold text-gray-900">{todayCalories} ккал</p>
+              <p className="text-3xl font-bold text-gray-900">{todayStats.calories} ккал</p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-500">{todayMeals.length} записей</p>
+              <p className="text-sm text-gray-500">{todayStats.meals.length} записей</p>
             </div>
           </div>
         </div>
 
-        {/* Members */}
+        {/* Calendar View */}
+        <div className="mb-6">
+          <h2 className="text-lg font-medium text-gray-900 mb-3">Календарь</h2>
+          <CalendarView
+            meals={meals}
+            users={users}
+            onCellClick={handleCellClick}
+          />
+        </div>
+
+        {/* Members - only show if more than 1 user */}
         {users.length > 1 && (
           <div className="mb-6">
             <h2 className="text-lg font-medium text-gray-900 mb-3">Участники</h2>
@@ -207,6 +261,15 @@ export default function ProjectDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Modal for meal details */}
+      <MealDetailsModal
+        isOpen={modalState.isOpen}
+        onClose={handleCloseModal}
+        userName={modalState.userName}
+        date={modalState.date}
+        meals={modalState.meals}
+      />
     </div>
   );
 }
