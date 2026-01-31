@@ -35,15 +35,15 @@ npm run build
 
 ### Task 2: Модель данных и Prisma
 
-- [ ] Создать prisma/schema.prisma с моделями:
+- [x] Создать prisma/schema.prisma с моделями:
   - Project (id, telegram_chat_id, title, type: group|personal, created_at)
   - User (id, telegram_user_id, first_name, username)
   - Membership (id, project_id, user_id, role: member|admin)
   - MealEntry (id, project_id, user_id, date, time, calories_estimated, description, source, photo_file_id, ai_confidence, needs_review, created_at, updated_at)
-- [ ] Настроить dual-database: Postgres (prod) + SQLite (dev) через env
-- [ ] Создать начальную миграцию
-- [ ] Добавить seed-скрипт для тестовых данных
-- [ ] Экспортировать типы Prisma для использования в коде
+- [x] Настроить dual-database: Postgres (prod) + SQLite (dev) через env
+- [x] Создать начальную миграцию
+- [x] Добавить seed-скрипт для тестовых данных
+- [x] Экспортировать типы Prisma для использования в коде
 
 ### Task 3: Конфигурация и переменные окружения
 
