@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import pino from 'pino';
 import { Config } from '../config/index.js';
 import { prisma, MembershipRole, MealEntrySource } from '../db/index.js';
+import { createToken, verifyToken, extractBearerToken, getJwtSecret } from './jwt.js';
 
 /**
  * Telegram WebApp/Login Widget auth data
@@ -203,14 +204,17 @@ export async function createApiServer(
     },
   });
 
-  // Auth middleware - extracts and validates Telegram auth
+  // JWT secret derived from bot token
+  const jwtSecret = getJwtSecret(config.bot.token);
+
+  // Auth middleware - extracts and validates Telegram auth or JWT
   fastify.decorateRequest('user', undefined);
 
   fastify.addHook(
     'preHandler',
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
       // Skip auth for public routes
-      const publicPaths = ['/health', '/docs', '/docs/'];
+      const publicPaths = ['/health', '/docs', '/auth/telegram', '/auth/webapp'];
       const isPublic =
         publicPaths.some((p) => request.url.startsWith(p)) ||
         request.url === '/' ||
@@ -218,15 +222,29 @@ export async function createApiServer(
 
       if (isPublic) return;
 
-      // Try Authorization header first (Login Widget format)
+      // Try Authorization header
       const authHeader = request.headers.authorization;
       // Try X-Telegram-Init-Data header (WebApp format)
       const webAppData = request.headers['x-telegram-init-data'] as string | undefined;
 
       let authUser: AuthUser | null = null;
 
-      if (webAppData) {
-        // Validate WebApp initData
+      // Priority 1: JWT Bearer token
+      const bearerToken = extractBearerToken(authHeader);
+      if (bearerToken) {
+        const payload = verifyToken(bearerToken, jwtSecret);
+        if (payload) {
+          authUser = {
+            telegramUserId: BigInt(payload.telegramUserId),
+            firstName: payload.firstName,
+            username: payload.username,
+            userId: undefined,
+          };
+        }
+      }
+
+      // Priority 2: WebApp initData
+      if (!authUser && webAppData) {
         const userData = validateTelegramWebApp(webAppData, config.bot.token);
         if (userData) {
           authUser = {
@@ -236,8 +254,10 @@ export async function createApiServer(
             userId: undefined,
           };
         }
-      } else if (authHeader?.startsWith('tg ')) {
-        // Parse Login Widget data from Authorization header
+      }
+
+      // Priority 3: Login Widget data (legacy "tg " prefix)
+      if (!authUser && authHeader?.startsWith('tg ')) {
         try {
           const jsonData = authHeader.slice(3);
           const data = JSON.parse(jsonData) as Record<string, string | number | undefined>;
@@ -325,6 +345,232 @@ export async function createApiServer(
         username: request.user.username,
         userId: request.user.userId,
         isRegistered: !!request.user.userId,
+      };
+    },
+  });
+
+  // POST /auth/telegram - Authenticate via Telegram Login Widget and get JWT
+  interface TelegramLoginBody {
+    id: number;
+    first_name: string;
+    username?: string;
+    photo_url?: string;
+    auth_date: number;
+    hash: string;
+  }
+
+  fastify.post<{ Body: TelegramLoginBody }>('/auth/telegram', {
+    schema: {
+      description: 'Authenticate via Telegram Login Widget and receive JWT token',
+      tags: ['Auth'],
+      body: {
+        type: 'object',
+        required: ['id', 'first_name', 'auth_date', 'hash'],
+        properties: {
+          id: { type: 'number' },
+          first_name: { type: 'string' },
+          username: { type: 'string' },
+          photo_url: { type: 'string' },
+          auth_date: { type: 'number' },
+          hash: { type: 'string' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            token: { type: 'string' },
+            user: {
+              type: 'object',
+              properties: {
+                telegramUserId: { type: 'string' },
+                firstName: { type: 'string' },
+                username: { type: 'string' },
+                isRegistered: { type: 'boolean' },
+              },
+            },
+          },
+        },
+        401: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+          },
+        },
+        403: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+          },
+        },
+      },
+    },
+    handler: async (request: FastifyRequest<{ Body: TelegramLoginBody }>, reply: FastifyReply) => {
+      const data = request.body;
+
+      // Check auth_date freshness (max 24 hours old)
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      const maxAge = 24 * 60 * 60; // 24 hours
+      if (currentTimestamp - data.auth_date > maxAge) {
+        return reply.status(401).send({ error: 'Auth data expired' });
+      }
+
+      // Validate Telegram signature
+      const authData: Record<string, string | number | undefined> = {
+        id: data.id,
+        first_name: data.first_name,
+        username: data.username,
+        photo_url: data.photo_url,
+        auth_date: data.auth_date,
+        hash: data.hash,
+      };
+
+      if (!validateTelegramAuth(authData, config.bot.token)) {
+        return reply.status(401).send({ error: 'Invalid Telegram auth signature' });
+      }
+
+      // Find user in database
+      const dbUser = await prisma.user.findUnique({
+        where: { telegramUserId: BigInt(data.id) },
+      });
+
+      // If user not in system, return specific error for redirect
+      if (!dbUser) {
+        return reply.status(403).send({
+          error: 'User not registered. Please use the bot first to create an account.',
+          code: 'USER_NOT_REGISTERED',
+        });
+      }
+
+      // Create JWT token
+      const token = createToken(
+        {
+          telegramUserId: data.id.toString(),
+          firstName: data.first_name,
+          username: data.username,
+        },
+        jwtSecret
+      );
+
+      logger.info({
+        event: 'user_login',
+        telegramUserId: data.id,
+        username: data.username,
+      });
+
+      return {
+        token,
+        user: {
+          telegramUserId: data.id.toString(),
+          firstName: data.first_name,
+          username: data.username,
+          isRegistered: true,
+        },
+      };
+    },
+  });
+
+  // POST /auth/webapp - Authenticate via Telegram WebApp initData and get JWT
+  interface WebAppAuthBody {
+    initData: string;
+  }
+
+  fastify.post<{ Body: WebAppAuthBody }>('/auth/webapp', {
+    schema: {
+      description: 'Authenticate via Telegram WebApp initData and receive JWT token',
+      tags: ['Auth'],
+      body: {
+        type: 'object',
+        required: ['initData'],
+        properties: {
+          initData: { type: 'string' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            token: { type: 'string' },
+            user: {
+              type: 'object',
+              properties: {
+                telegramUserId: { type: 'string' },
+                firstName: { type: 'string' },
+                username: { type: 'string' },
+                isRegistered: { type: 'boolean' },
+              },
+            },
+          },
+        },
+        401: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+          },
+        },
+        403: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+          },
+        },
+      },
+    },
+    handler: async (request: FastifyRequest<{ Body: WebAppAuthBody }>, reply: FastifyReply) => {
+      const { initData } = request.body;
+
+      // Validate WebApp initData
+      const userData = validateTelegramWebApp(initData, config.bot.token);
+      if (!userData) {
+        return reply.status(401).send({ error: 'Invalid WebApp initData' });
+      }
+
+      // Check auth_date freshness (max 24 hours old)
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      const maxAge = 24 * 60 * 60;
+      if (currentTimestamp - userData.auth_date > maxAge) {
+        return reply.status(401).send({ error: 'Auth data expired' });
+      }
+
+      // Find user in database
+      const dbUser = await prisma.user.findUnique({
+        where: { telegramUserId: BigInt(userData.id) },
+      });
+
+      // If user not in system, return specific error for redirect
+      if (!dbUser) {
+        return reply.status(403).send({
+          error: 'User not registered. Please use the bot first to create an account.',
+          code: 'USER_NOT_REGISTERED',
+        });
+      }
+
+      // Create JWT token
+      const token = createToken(
+        {
+          telegramUserId: userData.id.toString(),
+          firstName: userData.first_name,
+          username: userData.username,
+        },
+        jwtSecret
+      );
+
+      logger.info({
+        event: 'user_webapp_login',
+        telegramUserId: userData.id,
+        username: userData.username,
+      });
+
+      return {
+        token,
+        user: {
+          telegramUserId: userData.id.toString(),
+          firstName: userData.first_name,
+          username: userData.username,
+          isRegistered: true,
+        },
       };
     },
   });

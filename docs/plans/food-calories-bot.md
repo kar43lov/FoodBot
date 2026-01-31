@@ -114,12 +114,12 @@ npm run build
 
 ### Task 9: Web App — авторизация
 
-- [ ] Telegram Mini App авторизация (WebApp.initData)
-- [ ] Telegram Login Widget для standalone сайта
-- [ ] Верификация подписи от Telegram
-- [ ] JWT токены для сессии
-- [ ] Endpoint /auth/telegram для обработки Login Widget
-- [ ] Редирект "Нет данных" если пользователь не в системе
+- [x] Telegram Mini App авторизация (WebApp.initData)
+- [x] Telegram Login Widget для standalone сайта
+- [x] Верификация подписи от Telegram
+- [x] JWT токены для сессии
+- [x] Endpoint /auth/telegram для обработки Login Widget
+- [x] Редирект "Нет данных" если пользователь не в системе
 
 ### Task 10: Web App — Frontend (React)
 
