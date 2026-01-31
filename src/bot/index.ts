@@ -4,6 +4,14 @@ import Fastify, { FastifyInstance } from 'fastify';
 import pino from 'pino';
 import { Config } from '../config/index.js';
 import { handlePhoto } from './photoHandler.js';
+import {
+  handleStartCommand,
+  handleHelpCommand,
+  handleTodayCommand,
+  handleMyWeekCommand,
+  handleProjectCommand,
+  handleSetAdminCommand,
+} from './commands.js';
 
 /**
  * Custom bot context with additional properties.
@@ -50,32 +58,13 @@ export function createBot(config: Config, logger: pino.Logger): Bot<BotContext> 
     }
   });
 
-  // /start command
-  bot.command('start', async (ctx) => {
-    const firstName = ctx.from?.first_name ?? 'Пользователь';
-
-    await ctx.reply(
-      `Привет, ${firstName}! 👋\n\n` +
-        `Я бот для отслеживания калорийности еды.\n\n` +
-        `📸 Отправь мне фото еды, и я оценю её калорийность.\n` +
-        `📊 Статистику можно смотреть командами /today и /myweek.\n\n` +
-        `Используй /help для списка всех команд.`
-    );
-  });
-
-  // /help command
-  bot.command('help', async (ctx) => {
-    await ctx.reply(
-      `📖 Список команд:\n\n` +
-        `/start — Начать работу с ботом\n` +
-        `/help — Показать это сообщение\n` +
-        `/today — Статистика калорий за сегодня\n` +
-        `/myweek — Статистика за неделю\n` +
-        `/project — Информация о текущем проекте/группе\n` +
-        `/setadmin @username — Назначить админа (только для админов)\n\n` +
-        `📸 Просто отправь фото еды, чтобы записать калории!`
-    );
-  });
+  // Command handlers
+  bot.command('start', handleStartCommand);
+  bot.command('help', handleHelpCommand);
+  bot.command('today', handleTodayCommand);
+  bot.command('myweek', handleMyWeekCommand);
+  bot.command('project', handleProjectCommand);
+  bot.command('setadmin', handleSetAdminCommand);
 
   // Photo handler - process food images
   bot.on('message:photo', async (ctx) => {
