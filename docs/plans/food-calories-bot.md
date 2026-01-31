@@ -98,10 +98,10 @@ npm run build
 
 ### Task 8: REST API Backend
 
-- [ ] Создать /src/api/index.ts с Fastify
-- [ ] CORS настройка для web app
-- [ ] Middleware авторизации (Telegram WebApp/Login Widget)
-- [ ] Эндпоинты:
+- [x] Создать /src/api/index.ts с Fastify
+- [x] CORS настройка для web app
+- [x] Middleware авторизации (Telegram WebApp/Login Widget)
+- [x] Эндпоинты:
   - GET /auth/me — текущий пользователь
   - GET /projects — список проектов пользователя
   - GET /projects/:id/users — участники проекта
@@ -109,8 +109,8 @@ npm run build
   - POST /meals — создать запись
   - PUT /meals/:id — редактировать запись
   - DELETE /meals/:id — удалить запись
-- [ ] Валидация прав: пользователь — свои записи, админ — все
-- [ ] Swagger/OpenAPI документация
+- [x] Валидация прав: пользователь — свои записи, админ — все
+- [x] Swagger/OpenAPI документация
 
 ### Task 9: Web App — авторизация
 

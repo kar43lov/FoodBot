@@ -1,0 +1,855 @@
+import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import cors from '@fastify/cors';
+import fastifySwagger from '@fastify/swagger';
+import fastifySwaggerUi from '@fastify/swagger-ui';
+import crypto from 'crypto';
+import pino from 'pino';
+import { Config } from '../config/index.js';
+import { prisma, MembershipRole, MealEntrySource } from '../db/index.js';
+
+/**
+ * Telegram WebApp/Login Widget auth data
+ */
+export interface TelegramAuthData {
+  id: number;
+  first_name: string;
+  username: string | undefined;
+  photo_url: string | undefined;
+  auth_date: number;
+  hash: string;
+}
+
+/**
+ * Authenticated user info attached to request
+ */
+export interface AuthUser {
+  telegramUserId: bigint;
+  firstName: string;
+  username: string | undefined;
+  userId: string | undefined; // Database user ID if exists
+}
+
+// Extend FastifyRequest to include user
+declare module 'fastify' {
+  interface FastifyRequest {
+    user?: AuthUser;
+  }
+}
+
+/**
+ * Validates Telegram Login Widget data hash
+ */
+export function validateTelegramAuth(
+  data: Record<string, string | number | undefined>,
+  botToken: string
+): boolean {
+  const { hash, ...checkData } = data;
+  if (!hash || typeof hash !== 'string') return false;
+
+  // Create data-check-string
+  const dataCheckArr = Object.entries(checkData)
+    .filter(([, v]) => v !== undefined)
+    .map(([k, v]) => `${k}=${v}`)
+    .sort();
+  const dataCheckString = dataCheckArr.join('\n');
+
+  // Create secret key
+  const secretKey = crypto.createHash('sha256').update(botToken).digest();
+
+  // Calculate hash
+  const calculatedHash = crypto
+    .createHmac('sha256', secretKey)
+    .update(dataCheckString)
+    .digest('hex');
+
+  return calculatedHash === hash;
+}
+
+/**
+ * Validates Telegram WebApp initData
+ */
+export function validateTelegramWebApp(
+  initData: string,
+  botToken: string
+): TelegramAuthData | null {
+  try {
+    const params = new URLSearchParams(initData);
+    const hash = params.get('hash');
+    if (!hash) return null;
+
+    // Remove hash from params for verification
+    params.delete('hash');
+
+    // Create data-check-string (sorted alphabetically)
+    const dataCheckArr: string[] = [];
+    params.forEach((value, key) => {
+      dataCheckArr.push(`${key}=${value}`);
+    });
+    dataCheckArr.sort();
+    const dataCheckString = dataCheckArr.join('\n');
+
+    // Create secret key using "WebAppData" as HMAC key
+    const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
+
+    // Calculate hash
+    const calculatedHash = crypto
+      .createHmac('sha256', secretKey)
+      .update(dataCheckString)
+      .digest('hex');
+
+    if (calculatedHash !== hash) return null;
+
+    // Parse user data
+    const userStr = params.get('user');
+    if (!userStr) return null;
+
+    const user = JSON.parse(userStr) as {
+      id: number;
+      first_name: string;
+      username?: string;
+      photo_url?: string;
+    };
+
+    const authDate = params.get('auth_date');
+    if (!authDate) return null;
+
+    return {
+      id: user.id,
+      first_name: user.first_name,
+      username: user.username,
+      photo_url: user.photo_url,
+      auth_date: parseInt(authDate, 10),
+      hash,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Request body schemas for validation
+ */
+interface CreateMealBody {
+  projectId: string;
+  recordedAt: string;
+  caloriesEstimated: number;
+  description?: string;
+  source?: string;
+}
+
+interface UpdateMealBody {
+  recordedAt?: string;
+  caloriesEstimated?: number;
+  description?: string;
+  needsReview?: boolean;
+}
+
+interface MealsQuery {
+  from?: string;
+  to?: string;
+}
+
+/**
+ * Creates and configures the REST API server
+ */
+export async function createApiServer(
+  config: Config,
+  logger: pino.Logger
+): Promise<FastifyInstance> {
+  const fastify = Fastify({
+    logger: false, // Use our pino logger instead
+  });
+
+  // CORS configuration for web app
+  await fastify.register(cors, {
+    origin: config.bot.appUrl ? [config.bot.appUrl, 'http://localhost:5173'] : true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Telegram-Init-Data'],
+  });
+
+  // Swagger documentation
+  await fastify.register(fastifySwagger, {
+    openapi: {
+      info: {
+        title: 'Food Calories Bot API',
+        description: 'REST API for Food Calories Telegram Bot',
+        version: '1.0.0',
+      },
+      servers: [
+        {
+          url: config.bot.appUrl ?? 'http://localhost:3000',
+          description: 'API Server',
+        },
+      ],
+      components: {
+        securitySchemes: {
+          telegramAuth: {
+            type: 'apiKey',
+            in: 'header',
+            name: 'Authorization',
+            description: 'Telegram Login Widget data or WebApp initData',
+          },
+        },
+      },
+    },
+  });
+
+  await fastify.register(fastifySwaggerUi, {
+    routePrefix: '/docs',
+    uiConfig: {
+      docExpansion: 'list',
+      deepLinking: true,
+    },
+  });
+
+  // Auth middleware - extracts and validates Telegram auth
+  fastify.decorateRequest('user', undefined);
+
+  fastify.addHook(
+    'preHandler',
+    async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+      // Skip auth for public routes
+      const publicPaths = ['/health', '/docs', '/docs/'];
+      const isPublic =
+        publicPaths.some((p) => request.url.startsWith(p)) ||
+        request.url === '/' ||
+        request.url.startsWith('/docs/');
+
+      if (isPublic) return;
+
+      // Try Authorization header first (Login Widget format)
+      const authHeader = request.headers.authorization;
+      // Try X-Telegram-Init-Data header (WebApp format)
+      const webAppData = request.headers['x-telegram-init-data'] as string | undefined;
+
+      let authUser: AuthUser | null = null;
+
+      if (webAppData) {
+        // Validate WebApp initData
+        const userData = validateTelegramWebApp(webAppData, config.bot.token);
+        if (userData) {
+          authUser = {
+            telegramUserId: BigInt(userData.id),
+            firstName: userData.first_name,
+            username: userData.username,
+            userId: undefined,
+          };
+        }
+      } else if (authHeader?.startsWith('tg ')) {
+        // Parse Login Widget data from Authorization header
+        try {
+          const jsonData = authHeader.slice(3);
+          const data = JSON.parse(jsonData) as Record<string, string | number | undefined>;
+
+          if (validateTelegramAuth(data, config.bot.token)) {
+            authUser = {
+              telegramUserId: BigInt(data.id as number),
+              firstName: data.first_name as string,
+              username: data.username as string | undefined,
+              userId: undefined,
+            };
+          }
+        } catch {
+          // Invalid auth header format
+        }
+      }
+
+      if (!authUser) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      // Find user in database
+      const dbUser = await prisma.user.findUnique({
+        where: { telegramUserId: authUser.telegramUserId },
+      });
+
+      if (dbUser) {
+        authUser.userId = dbUser.id;
+      }
+
+      request.user = authUser;
+    }
+  );
+
+  // Health check endpoint
+  fastify.get('/health', {
+    schema: {
+      description: 'Health check endpoint',
+      tags: ['System'],
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            status: { type: 'string' },
+            timestamp: { type: 'string' },
+          },
+        },
+      },
+    },
+    handler: () => {
+      return {
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+      };
+    },
+  });
+
+  // GET /auth/me - Current user info
+  fastify.get('/auth/me', {
+    schema: {
+      description: 'Get current authenticated user',
+      tags: ['Auth'],
+      security: [{ telegramAuth: [] }],
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            telegramUserId: { type: 'string' },
+            firstName: { type: 'string' },
+            username: { type: 'string' },
+            userId: { type: 'string' },
+            isRegistered: { type: 'boolean' },
+          },
+        },
+      },
+    },
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      if (!request.user) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      return {
+        telegramUserId: request.user.telegramUserId.toString(),
+        firstName: request.user.firstName,
+        username: request.user.username,
+        userId: request.user.userId,
+        isRegistered: !!request.user.userId,
+      };
+    },
+  });
+
+  // GET /projects - List user's projects
+  fastify.get('/projects', {
+    schema: {
+      description: 'Get list of projects for current user',
+      tags: ['Projects'],
+      security: [{ telegramAuth: [] }],
+      response: {
+        200: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              telegramChatId: { type: 'string' },
+              title: { type: 'string' },
+              type: { type: 'string' },
+              role: { type: 'string' },
+              createdAt: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      if (!request.user?.userId) {
+        return reply.status(404).send({ error: 'User not found in system' });
+      }
+
+      const memberships = await prisma.membership.findMany({
+        where: { userId: request.user.userId },
+        include: { project: true },
+      });
+
+      return memberships.map((m) => ({
+        id: m.project.id,
+        telegramChatId: m.project.telegramChatId.toString(),
+        title: m.project.title,
+        type: m.project.type,
+        role: m.role,
+        createdAt: m.project.createdAt.toISOString(),
+      }));
+    },
+  });
+
+  // GET /projects/:id/users - Get project members
+  fastify.get<{ Params: { id: string } }>('/projects/:id/users', {
+    schema: {
+      description: 'Get members of a project',
+      tags: ['Projects'],
+      security: [{ telegramAuth: [] }],
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+        },
+        required: ['id'],
+      },
+      response: {
+        200: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              userId: { type: 'string' },
+              telegramUserId: { type: 'string' },
+              firstName: { type: 'string' },
+              username: { type: 'string' },
+              role: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    handler: async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+      if (!request.user?.userId) {
+        return reply.status(404).send({ error: 'User not found in system' });
+      }
+
+      const projectId = request.params.id;
+
+      // Check if user is a member of this project
+      const membership = await prisma.membership.findUnique({
+        where: {
+          projectId_userId: {
+            projectId,
+            userId: request.user.userId,
+          },
+        },
+      });
+
+      if (!membership) {
+        return reply.status(403).send({ error: 'Access denied' });
+      }
+
+      const members = await prisma.membership.findMany({
+        where: { projectId },
+        include: { user: true },
+      });
+
+      return members.map((m) => ({
+        userId: m.user.id,
+        telegramUserId: m.user.telegramUserId.toString(),
+        firstName: m.user.firstName,
+        username: m.user.username,
+        role: m.role,
+      }));
+    },
+  });
+
+  // GET /projects/:id/meals - Get meals for a project
+  fastify.get<{ Params: { id: string }; Querystring: MealsQuery }>('/projects/:id/meals', {
+    schema: {
+      description: 'Get meal entries for a project within a date range',
+      tags: ['Meals'],
+      security: [{ telegramAuth: [] }],
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+        },
+        required: ['id'],
+      },
+      querystring: {
+        type: 'object',
+        properties: {
+          from: { type: 'string', format: 'date-time' },
+          to: { type: 'string', format: 'date-time' },
+        },
+      },
+      response: {
+        200: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              userId: { type: 'string' },
+              recordedAt: { type: 'string' },
+              caloriesEstimated: { type: 'number' },
+              description: { type: 'string' },
+              source: { type: 'string' },
+              aiConfidence: { type: 'number' },
+              needsReview: { type: 'boolean' },
+              user: {
+                type: 'object',
+                properties: {
+                  firstName: { type: 'string' },
+                  username: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    handler: async (
+      request: FastifyRequest<{ Params: { id: string }; Querystring: MealsQuery }>,
+      reply: FastifyReply
+    ) => {
+      if (!request.user?.userId) {
+        return reply.status(404).send({ error: 'User not found in system' });
+      }
+
+      const projectId = request.params.id;
+      const { from, to } = request.query;
+
+      // Check if user is a member of this project
+      const membership = await prisma.membership.findUnique({
+        where: {
+          projectId_userId: {
+            projectId,
+            userId: request.user.userId,
+          },
+        },
+      });
+
+      if (!membership) {
+        return reply.status(403).send({ error: 'Access denied' });
+      }
+
+      // Build date filter
+      const dateFilter: { gte?: Date; lte?: Date } = {};
+      if (from) dateFilter.gte = new Date(from);
+      if (to) dateFilter.lte = new Date(to);
+
+      const meals = await prisma.mealEntry.findMany({
+        where: {
+          projectId,
+          ...(Object.keys(dateFilter).length > 0 ? { recordedAt: dateFilter } : {}),
+        },
+        include: {
+          user: {
+            select: {
+              firstName: true,
+              username: true,
+            },
+          },
+        },
+        orderBy: { recordedAt: 'desc' },
+      });
+
+      return meals.map((m) => ({
+        id: m.id,
+        userId: m.userId,
+        recordedAt: m.recordedAt.toISOString(),
+        caloriesEstimated: m.caloriesEstimated,
+        description: m.description,
+        source: m.source,
+        aiConfidence: m.aiConfidence,
+        needsReview: m.needsReview,
+        user: {
+          firstName: m.user.firstName,
+          username: m.user.username,
+        },
+      }));
+    },
+  });
+
+  // POST /meals - Create a meal entry
+  fastify.post<{ Body: CreateMealBody }>('/meals', {
+    schema: {
+      description: 'Create a new meal entry',
+      tags: ['Meals'],
+      security: [{ telegramAuth: [] }],
+      body: {
+        type: 'object',
+        required: ['projectId', 'recordedAt', 'caloriesEstimated'],
+        properties: {
+          projectId: { type: 'string' },
+          recordedAt: { type: 'string', format: 'date-time' },
+          caloriesEstimated: { type: 'number', minimum: 1, maximum: 10000 },
+          description: { type: 'string' },
+          source: { type: 'string', enum: ['photo', 'manual', 'web'] },
+        },
+      },
+      response: {
+        201: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            projectId: { type: 'string' },
+            userId: { type: 'string' },
+            recordedAt: { type: 'string' },
+            caloriesEstimated: { type: 'number' },
+            description: { type: 'string' },
+            source: { type: 'string' },
+          },
+        },
+      },
+    },
+    handler: async (request: FastifyRequest<{ Body: CreateMealBody }>, reply: FastifyReply) => {
+      if (!request.user?.userId) {
+        return reply.status(404).send({ error: 'User not found in system' });
+      }
+
+      const { projectId, recordedAt, caloriesEstimated, description, source } = request.body;
+
+      // Check if user is a member of this project
+      const membership = await prisma.membership.findUnique({
+        where: {
+          projectId_userId: {
+            projectId,
+            userId: request.user.userId,
+          },
+        },
+      });
+
+      if (!membership) {
+        return reply.status(403).send({ error: 'Access denied' });
+      }
+
+      // Validate calories
+      if (caloriesEstimated < 1 || caloriesEstimated > 10000) {
+        return reply.status(400).send({ error: 'Calories must be between 1 and 10000' });
+      }
+
+      const meal = await prisma.mealEntry.create({
+        data: {
+          projectId,
+          userId: request.user.userId,
+          recordedAt: new Date(recordedAt),
+          caloriesEstimated,
+          description: description ?? null,
+          source: source ?? MealEntrySource.WEB,
+        },
+      });
+
+      logger.info({
+        event: 'meal_created',
+        mealId: meal.id,
+        projectId,
+        userId: request.user.userId,
+        calories: caloriesEstimated,
+      });
+
+      return reply.status(201).send({
+        id: meal.id,
+        projectId: meal.projectId,
+        userId: meal.userId,
+        recordedAt: meal.recordedAt.toISOString(),
+        caloriesEstimated: meal.caloriesEstimated,
+        description: meal.description,
+        source: meal.source,
+      });
+    },
+  });
+
+  // PUT /meals/:id - Update a meal entry
+  fastify.put<{ Params: { id: string }; Body: UpdateMealBody }>('/meals/:id', {
+    schema: {
+      description: 'Update a meal entry',
+      tags: ['Meals'],
+      security: [{ telegramAuth: [] }],
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+        },
+        required: ['id'],
+      },
+      body: {
+        type: 'object',
+        properties: {
+          recordedAt: { type: 'string', format: 'date-time' },
+          caloriesEstimated: { type: 'number', minimum: 1, maximum: 10000 },
+          description: { type: 'string' },
+          needsReview: { type: 'boolean' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            recordedAt: { type: 'string' },
+            caloriesEstimated: { type: 'number' },
+            description: { type: 'string' },
+            needsReview: { type: 'boolean' },
+          },
+        },
+      },
+    },
+    handler: async (
+      request: FastifyRequest<{ Params: { id: string }; Body: UpdateMealBody }>,
+      reply: FastifyReply
+    ) => {
+      if (!request.user?.userId) {
+        return reply.status(404).send({ error: 'User not found in system' });
+      }
+
+      const mealId = request.params.id;
+
+      // Find the meal
+      const meal = await prisma.mealEntry.findUnique({
+        where: { id: mealId },
+        include: {
+          project: {
+            include: {
+              memberships: {
+                where: { userId: request.user.userId },
+              },
+            },
+          },
+        },
+      });
+
+      if (!meal) {
+        return reply.status(404).send({ error: 'Meal not found' });
+      }
+
+      // Check permissions: own meal or admin
+      const userMembership = meal.project.memberships[0];
+      if (!userMembership) {
+        return reply.status(403).send({ error: 'Access denied' });
+      }
+
+      const isOwner = meal.userId === request.user.userId;
+      const isAdmin = userMembership.role === MembershipRole.ADMIN;
+
+      if (!isOwner && !isAdmin) {
+        return reply.status(403).send({ error: 'Can only edit own meals or as admin' });
+      }
+
+      const { recordedAt, caloriesEstimated, description, needsReview } = request.body;
+
+      // Validate calories if provided
+      if (caloriesEstimated !== undefined && (caloriesEstimated < 1 || caloriesEstimated > 10000)) {
+        return reply.status(400).send({ error: 'Calories must be between 1 and 10000' });
+      }
+
+      const updateData: {
+        recordedAt?: Date;
+        caloriesEstimated?: number;
+        description?: string;
+        needsReview?: boolean;
+      } = {};
+
+      if (recordedAt !== undefined) updateData.recordedAt = new Date(recordedAt);
+      if (caloriesEstimated !== undefined) updateData.caloriesEstimated = caloriesEstimated;
+      if (description !== undefined) updateData.description = description;
+      if (needsReview !== undefined) updateData.needsReview = needsReview;
+
+      const updatedMeal = await prisma.mealEntry.update({
+        where: { id: mealId },
+        data: updateData,
+      });
+
+      logger.info({
+        event: 'meal_updated',
+        mealId,
+        userId: request.user.userId,
+        isAdmin,
+      });
+
+      return {
+        id: updatedMeal.id,
+        recordedAt: updatedMeal.recordedAt.toISOString(),
+        caloriesEstimated: updatedMeal.caloriesEstimated,
+        description: updatedMeal.description,
+        needsReview: updatedMeal.needsReview,
+      };
+    },
+  });
+
+  // DELETE /meals/:id - Delete a meal entry
+  fastify.delete<{ Params: { id: string } }>('/meals/:id', {
+    schema: {
+      description: 'Delete a meal entry',
+      tags: ['Meals'],
+      security: [{ telegramAuth: [] }],
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+        },
+        required: ['id'],
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+          },
+        },
+      },
+    },
+    handler: async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+      if (!request.user?.userId) {
+        return reply.status(404).send({ error: 'User not found in system' });
+      }
+
+      const mealId = request.params.id;
+
+      // Find the meal
+      const meal = await prisma.mealEntry.findUnique({
+        where: { id: mealId },
+        include: {
+          project: {
+            include: {
+              memberships: {
+                where: { userId: request.user.userId },
+              },
+            },
+          },
+        },
+      });
+
+      if (!meal) {
+        return reply.status(404).send({ error: 'Meal not found' });
+      }
+
+      // Check permissions: own meal or admin
+      const userMembership = meal.project.memberships[0];
+      if (!userMembership) {
+        return reply.status(403).send({ error: 'Access denied' });
+      }
+
+      const isOwner = meal.userId === request.user.userId;
+      const isAdmin = userMembership.role === MembershipRole.ADMIN;
+
+      if (!isOwner && !isAdmin) {
+        return reply.status(403).send({ error: 'Can only delete own meals or as admin' });
+      }
+
+      await prisma.mealEntry.delete({
+        where: { id: mealId },
+      });
+
+      logger.info({
+        event: 'meal_deleted',
+        mealId,
+        userId: request.user.userId,
+        isAdmin,
+      });
+
+      return { success: true };
+    },
+  });
+
+  return fastify;
+}
+
+/**
+ * Starts the API server
+ */
+export async function startApiServer(
+  config: Config,
+  logger: pino.Logger
+): Promise<FastifyInstance> {
+  const server = await createApiServer(config, logger);
+
+  await server.listen({
+    host: config.server.host,
+    port: config.server.port,
+  });
+
+  logger.info({
+    event: 'api_started',
+    port: config.server.port,
+    docsUrl: `http://localhost:${config.server.port}/docs`,
+  });
+
+  return server;
+}
