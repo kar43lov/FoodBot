@@ -123,11 +123,11 @@ npm run build
 
 ### Task 10: Web App — Frontend (React)
 
-- [ ] Создать /src/web с Vite + React + TypeScript
-- [ ] Роутинг: /login, /projects, /projects/:id
-- [ ] Компонент авторизации (Mini App + Login Widget)
-- [ ] Список проектов (1 проект → сразу открыть)
-- [ ] UI kit: простой, без тяжёлых библиотек (Tailwind CSS)
+- [x] Создать /src/web с Vite + React + TypeScript
+- [x] Роутинг: /login, /projects, /projects/:id
+- [x] Компонент авторизации (Mini App + Login Widget)
+- [x] Список проектов (1 проект → сразу открыть)
+- [x] UI kit: простой, без тяжёлых библиотек (Tailwind CSS)
 
 ### Task 11: Web App — Календарь
 

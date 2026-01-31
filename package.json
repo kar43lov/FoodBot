@@ -8,8 +8,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "lint": "eslint src --ext .ts,.tsx",
-    "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "lint": "eslint src --ext .ts,.tsx --ignore-pattern src/web",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix --ignore-pattern src/web",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
@@ -19,7 +19,11 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "web:install": "cd src/web && npm install",
+    "web:dev": "cd src/web && npm run dev",
+    "web:build": "cd src/web && npm run build",
+    "web:lint": "cd src/web && npm run lint"
   },
   "keywords": [
     "telegram",
