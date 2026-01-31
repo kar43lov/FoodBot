@@ -67,12 +67,12 @@ npm run build
 
 ### Task 5: Telegram Bot — базовая структура
 
-- [ ] Создать /src/bot/index.ts с grammy
-- [ ] Поддержка режимов: long polling (dev) и webhook (prod)
-- [ ] Middleware для логирования
-- [ ] Error handler с graceful recovery
-- [ ] Команды: /start, /help
-- [ ] Health check endpoint для webhook
+- [x] Создать /src/bot/index.ts с grammy
+- [x] Поддержка режимов: long polling (dev) и webhook (prod)
+- [x] Middleware для логирования
+- [x] Error handler с graceful recovery
+- [x] Команды: /start, /help
+- [x] Health check endpoint для webhook
 
 ### Task 6: Telegram Bot — обработка фото
 
