@@ -8,6 +8,7 @@ import { Config } from '../config/index.js';
 interface MockBot {
   use: ReturnType<typeof vi.fn>;
   command: ReturnType<typeof vi.fn>;
+  on: ReturnType<typeof vi.fn>;
   catch: ReturnType<typeof vi.fn>;
   api: {
     deleteWebhook: ReturnType<typeof vi.fn>;
@@ -25,6 +26,7 @@ vi.mock('grammy', () => {
       mockBotInstance = {
         use: vi.fn(),
         command: vi.fn(),
+        on: vi.fn(),
         catch: vi.fn(),
         api: {
           deleteWebhook: vi.fn().mockResolvedValue(true),
@@ -46,7 +48,7 @@ vi.mock('grammy', () => {
       }
     },
     HttpError: class HttpError extends Error {},
-    webhookCallback: vi.fn(() => async () => ({ status: 200 })),
+    webhookCallback: vi.fn(() => () => ({ status: 200 })),
   };
 });
 

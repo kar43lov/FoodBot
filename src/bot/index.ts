@@ -3,6 +3,7 @@ import { run, sequentialize } from '@grammyjs/runner';
 import Fastify, { FastifyInstance } from 'fastify';
 import pino from 'pino';
 import { Config } from '../config/index.js';
+import { handlePhoto } from './photoHandler.js';
 
 /**
  * Custom bot context with additional properties.
@@ -21,7 +22,9 @@ export function createBot(config: Config, logger: pino.Logger): Bot<BotContext> 
   // Logging middleware
   bot.use(async (ctx, next) => {
     const start = Date.now();
-    const updateType = ctx.update ? Object.keys(ctx.update).find((k) => k !== 'update_id') : 'unknown';
+    const updateType = ctx.update
+      ? Object.keys(ctx.update).find((k) => k !== 'update_id')
+      : 'unknown';
     const chatId = ctx.chat?.id;
     const userId = ctx.from?.id;
     const username = ctx.from?.username;
@@ -74,11 +77,18 @@ export function createBot(config: Config, logger: pino.Logger): Bot<BotContext> 
     );
   });
 
+  // Photo handler - process food images
+  bot.on('message:photo', async (ctx) => {
+    await handlePhoto(ctx, logger);
+  });
+
   // Error handler
   bot.catch((err) => {
     const ctx = err.ctx;
     const error = err.error;
-    const updateType = ctx.update ? Object.keys(ctx.update).find((k) => k !== 'update_id') : 'unknown';
+    const updateType = ctx.update
+      ? Object.keys(ctx.update).find((k) => k !== 'update_id')
+      : 'unknown';
 
     logger.error({
       event: 'bot_error',
@@ -167,7 +177,10 @@ export async function createWebhookServer(
 
   // Webhook endpoint - handle secretToken properly for exactOptionalPropertyTypes
   if (webhookConfig.secretToken) {
-    fastify.post(webhookPath, webhookCallback(bot, 'fastify', { secretToken: webhookConfig.secretToken }));
+    fastify.post(
+      webhookPath,
+      webhookCallback(bot, 'fastify', { secretToken: webhookConfig.secretToken })
+    );
   } else {
     fastify.post(webhookPath, webhookCallback(bot, 'fastify'));
   }

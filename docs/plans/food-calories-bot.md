@@ -76,16 +76,16 @@ npm run build
 
 ### Task 6: Telegram Bot — обработка фото
 
-- [ ] Обработчик сообщений с фото (message:photo)
-- [ ] Определение типа чата (группа/личка)
-- [ ] Upsert Project (с type: group|personal)
-- [ ] Upsert User
-- [ ] Upsert Membership (первый пользователь = admin)
-- [ ] Скачивание фото через Telegram API
-- [ ] Отправка в FoodVisionService
-- [ ] Если еда: создать MealEntry, ответить "Записал ~XXX ккал"
-- [ ] Если не еда: поставить реакцию 🤷 на сообщение
-- [ ] Обработка ошибок AI без падения бота
+- [x] Обработчик сообщений с фото (message:photo)
+- [x] Определение типа чата (группа/личка)
+- [x] Upsert Project (с type: group|personal)
+- [x] Upsert User
+- [x] Upsert Membership (первый пользователь = admin)
+- [x] Скачивание фото через Telegram API
+- [x] Отправка в FoodVisionService
+- [x] Если еда: создать MealEntry, ответить "Записал ~XXX ккал"
+- [x] Если не еда: поставить реакцию 🤷 на сообщение
+- [x] Обработка ошибок AI без падения бота
 
 ### Task 7: Telegram Bot — команды
 
