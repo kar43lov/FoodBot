@@ -7,9 +7,9 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
 
-# Copy Prisma schema and generate client
+# Copy Prisma schemas and generate client using production schema
 COPY prisma ./prisma
-RUN npx prisma generate
+RUN cp prisma/schema.prod.prisma prisma/schema.prisma && npx prisma generate
 
 # Copy source code and build
 COPY tsconfig.json ./
@@ -34,9 +34,9 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --only=production
 
-# Copy Prisma schema and regenerate for production
+# Copy Prisma schemas and regenerate for production (PostgreSQL)
 COPY prisma ./prisma
-RUN npx prisma generate
+RUN cp prisma/schema.prod.prisma prisma/schema.prisma && npx prisma generate
 
 # Copy built backend from builder
 COPY --from=builder /app/dist ./dist

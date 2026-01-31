@@ -189,11 +189,9 @@ describe('Bot Module', () => {
 
       const body = JSON.parse(response.payload) as {
         status: string;
-        mode: string;
         timestamp: string;
       };
       expect(body.status).toBe('ok');
-      expect(body.mode).toBe('webhook');
       expect(body.timestamp).toBeDefined();
 
       await server.close();

@@ -233,7 +233,9 @@ export default function ProjectDetailPage() {
     if (modalState.isOpen && modalState.userId && modalState.date) {
       const dateKey = modalState.date;
       const filteredMeals = meals.filter((m) => {
-        const mealDate = new Date(m.recordedAt).toISOString().split('T')[0];
+        const d = new Date(m.recordedAt);
+        // Use local date to avoid timezone shifts
+        const mealDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         return m.userId === modalState.userId && mealDate === dateKey;
       });
       setModalState((prev) => ({ ...prev, meals: filteredMeals }));

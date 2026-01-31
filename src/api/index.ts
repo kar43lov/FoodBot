@@ -165,59 +165,15 @@ interface MealsQuery {
 }
 
 /**
- * Creates and configures the REST API server
+ * Registers API routes on an existing Fastify instance.
+ * This allows routes to be added to either a standalone API server
+ * or to the webhook server in production mode.
  */
-export async function createApiServer(
+export function registerApiRoutes(
+  fastify: FastifyInstance,
   config: Config,
   logger: pino.Logger
-): Promise<FastifyInstance> {
-  const fastify = Fastify({
-    logger: false, // Use our pino logger instead
-  });
-
-  // CORS configuration for web app
-  await fastify.register(cors, {
-    origin: config.bot.appUrl ? [config.bot.appUrl, 'http://localhost:5173'] : true,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Telegram-Init-Data'],
-  });
-
-  // Swagger documentation
-  await fastify.register(fastifySwagger, {
-    openapi: {
-      info: {
-        title: 'Food Calories Bot API',
-        description: 'REST API for Food Calories Telegram Bot',
-        version: '1.0.0',
-      },
-      servers: [
-        {
-          url: config.bot.appUrl ?? 'http://localhost:3000',
-          description: 'API Server',
-        },
-      ],
-      components: {
-        securitySchemes: {
-          telegramAuth: {
-            type: 'apiKey',
-            in: 'header',
-            name: 'Authorization',
-            description: 'Telegram Login Widget data or WebApp initData',
-          },
-        },
-      },
-    },
-  });
-
-  await fastify.register(fastifySwaggerUi, {
-    routePrefix: '/docs',
-    uiConfig: {
-      docExpansion: 'list',
-      deepLinking: true,
-    },
-  });
-
+): void {
   // JWT secret derived from bot token
   const jwtSecret = getJwtSecret(config.bot.token);
 
@@ -1120,6 +1076,64 @@ export async function createApiServer(
       return { success: true };
     },
   });
+}
+
+/**
+ * Creates and configures the REST API server
+ */
+export async function createApiServer(
+  config: Config,
+  logger: pino.Logger
+): Promise<FastifyInstance> {
+  const fastify = Fastify({
+    logger: false, // Use our pino logger instead
+  });
+
+  // CORS configuration for web app
+  await fastify.register(cors, {
+    origin: config.bot.appUrl ? [config.bot.appUrl, 'http://localhost:5173'] : true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Telegram-Init-Data'],
+  });
+
+  // Swagger documentation
+  await fastify.register(fastifySwagger, {
+    openapi: {
+      info: {
+        title: 'Food Calories Bot API',
+        description: 'REST API for Food Calories Telegram Bot',
+        version: '1.0.0',
+      },
+      servers: [
+        {
+          url: config.bot.appUrl ?? 'http://localhost:3000',
+          description: 'API Server',
+        },
+      ],
+      components: {
+        securitySchemes: {
+          telegramAuth: {
+            type: 'apiKey',
+            in: 'header',
+            name: 'Authorization',
+            description: 'Telegram Login Widget data or WebApp initData',
+          },
+        },
+      },
+    },
+  });
+
+  await fastify.register(fastifySwaggerUi, {
+    routePrefix: '/docs',
+    uiConfig: {
+      docExpansion: 'list',
+      deepLinking: true,
+    },
+  });
+
+  // Register API routes
+  registerApiRoutes(fastify, config, logger);
 
   return fastify;
 }

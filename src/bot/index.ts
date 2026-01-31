@@ -1,6 +1,7 @@
 import { Bot, Context, GrammyError, HttpError, webhookCallback } from 'grammy';
 import { run, sequentialize } from '@grammyjs/runner';
 import Fastify, { FastifyInstance } from 'fastify';
+import cors from '@fastify/cors';
 import pino from 'pino';
 import { Config } from '../config/index.js';
 import { handlePhoto } from './photoHandler.js';
@@ -12,6 +13,7 @@ import {
   handleProjectCommand,
   handleSetAdminCommand,
 } from './commands.js';
+import { registerApiRoutes } from '../api/index.js';
 
 /**
  * Custom bot context with additional properties.
@@ -141,28 +143,27 @@ export interface WebhookConfig {
 }
 
 /**
- * Creates Fastify server with webhook handler and health check.
+ * Creates Fastify server with webhook handler, health check, and API routes.
  */
 export async function createWebhookServer(
   bot: Bot<BotContext>,
-  _config: Config,
-  _logger: pino.Logger,
+  config: Config,
+  logger: pino.Logger,
   webhookConfig: WebhookConfig = {}
 ): Promise<FastifyInstance> {
   const fastify = Fastify({
     logger: false, // Use our pino logger instead
   });
 
-  const webhookPath = webhookConfig.path ?? '/webhook';
-
-  // Health check endpoint
-  fastify.get('/health', () => {
-    return {
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      mode: 'webhook',
-    };
+  // CORS configuration for web app (needed for API routes)
+  await fastify.register(cors, {
+    origin: config.bot.appUrl ? [config.bot.appUrl, 'http://localhost:5173'] : true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Telegram-Init-Data'],
   });
+
+  const webhookPath = webhookConfig.path ?? '/webhook';
 
   // Webhook endpoint - handle secretToken properly for exactOptionalPropertyTypes
   if (webhookConfig.secretToken) {
@@ -173,6 +174,14 @@ export async function createWebhookServer(
   } else {
     fastify.post(webhookPath, webhookCallback(bot, 'fastify'));
   }
+
+  // Register API routes for production mode
+  registerApiRoutes(fastify, config, logger);
+
+  logger.info({
+    event: 'api_routes_registered',
+    mode: 'webhook',
+  });
 
   return fastify;
 }
