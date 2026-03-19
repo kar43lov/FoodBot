@@ -327,6 +327,7 @@ export function registerApiRoutes(
   interface TelegramLoginBody {
     id: number;
     first_name: string;
+    last_name?: string;
     username?: string;
     photo_url?: string;
     auth_date: number;
@@ -343,6 +344,7 @@ export function registerApiRoutes(
         properties: {
           id: { type: 'number' },
           first_name: { type: 'string' },
+          last_name: { type: 'string' },
           username: { type: 'string' },
           photo_url: { type: 'string' },
           auth_date: { type: 'number' },
@@ -390,15 +392,20 @@ export function registerApiRoutes(
         return reply.status(401).send({ error: 'Auth data expired' });
       }
 
-      // Validate Telegram signature
+      // Validate Telegram signature - must include ALL fields from request
       const authData: Record<string, string | number | undefined> = {
         id: data.id,
         first_name: data.first_name,
+        last_name: data.last_name,
         username: data.username,
         photo_url: data.photo_url,
         auth_date: data.auth_date,
         hash: data.hash,
       };
+
+      // Debug logging
+      console.log('Telegram auth data received:', JSON.stringify(data, null, 2));
+      console.log('Auth data for validation:', JSON.stringify(authData, null, 2));
 
       if (!validateTelegramAuth(authData, config.bot.token)) {
         return reply.status(401).send({ error: 'Invalid Telegram auth signature' });

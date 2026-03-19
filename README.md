@@ -70,7 +70,7 @@ HOST=0.0.0.0
 |------------|--------------|----------|
 | BOT_TOKEN | Да | Токен Telegram бота от @BotFather |
 | WEBHOOK_URL | Нет | URL для webhook (только prod) |
-| APP_URL | Да | URL веб-приложения |
+| APP_URL | Нет | URL веб-приложения (для Mini App) |
 | DATABASE_URL | Да | Строка подключения к БД |
 | OPENAI_API_KEY | Да | API ключ OpenAI |
 | OPENAI_MODEL | Нет | Модель OpenAI (по умолчанию: gpt-4o) |
