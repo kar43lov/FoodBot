@@ -17,6 +17,7 @@ export type LogLevel = z.infer<typeof LogLevelSchema>;
 const EnvSchema = z.object({
   // Telegram Bot - required
   BOT_TOKEN: z.string().min(1, 'BOT_TOKEN is required'),
+  BOT_NAME: z.string().min(1, 'BOT_NAME is required'),
 
   // Telegram Bot - optional (required only in prod mode)
   WEBHOOK_URL: z.string().url().optional(),
@@ -44,6 +45,9 @@ const EnvSchema = z.object({
   // Server - optional with defaults
   PORT: z.coerce.number().int().positive().default(3000),
   HOST: z.string().default('0.0.0.0'),
+
+  // Access control - required
+  SUPER_ADMIN_ID: z.coerce.number().int().positive('SUPER_ADMIN_ID is required'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -55,6 +59,7 @@ export interface Config {
   // Telegram
   bot: {
     token: string;
+    name: string;
     webhookUrl: string | undefined;
     appUrl: string | undefined;
   };
@@ -91,6 +96,9 @@ export interface Config {
 
   // Timezone
   timezone: string;
+
+  // Access control
+  superAdminId: number;
 }
 
 /**
@@ -125,6 +133,7 @@ function createConfig(env: Env): Config {
   return {
     bot: {
       token: env.BOT_TOKEN,
+      name: env.BOT_NAME,
       webhookUrl: env.WEBHOOK_URL,
       appUrl: env.APP_URL,
     },
@@ -149,6 +158,7 @@ function createConfig(env: Env): Config {
       host: env.HOST,
     },
     timezone: env.TZ,
+    superAdminId: env.SUPER_ADMIN_ID,
   };
 }
 

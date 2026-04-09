@@ -88,6 +88,7 @@ import { prisma } from '../db/index.js';
 const testConfig: Config = {
   bot: {
     token: 'test-bot-token-12345',
+    name: 'TestBot',
     webhookUrl: undefined,
     appUrl: 'http://localhost:5173',
   },
@@ -112,6 +113,7 @@ const testConfig: Config = {
     host: '0.0.0.0',
   },
   timezone: 'Europe/Moscow',
+  superAdminId: 123456789,
 };
 
 function createTestLogger(): pino.Logger {

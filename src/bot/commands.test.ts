@@ -43,6 +43,14 @@ vi.mock('./photoHandler.js', () => ({
   upsertMembership: vi.fn(),
 }));
 
+// Mock accessControl
+vi.mock('./accessControl.js', () => ({
+  getAccessControl: vi.fn(() => ({
+    isSuperAdmin: vi.fn().mockReturnValue(false),
+    isManager: vi.fn().mockReturnValue(false),
+  })),
+}));
+
 import { prisma, MembershipRole } from '../db/index.js';
 import { upsertProject, upsertUser, upsertMembership } from './photoHandler.js';
 

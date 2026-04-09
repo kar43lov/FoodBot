@@ -7,6 +7,7 @@ import pino from 'pino';
 import { Config } from '../config/index.js';
 import { prisma, MembershipRole, MealEntrySource } from '../db/index.js';
 import { createToken, verifyToken, extractBearerToken, getJwtSecret } from './jwt.js';
+import { getFoodVisionService } from '../ai/index.js';
 
 /**
  * Telegram WebApp/Login Widget auth data
@@ -874,6 +875,60 @@ export function registerApiRoutes(
           username: meal.user.username,
         },
       });
+    },
+  });
+
+  // POST /meals/analyze-photo - Analyze food photo and return AI results
+  fastify.post<{ Body: { photo: string } }>('/meals/analyze-photo', {
+    schema: {
+      description: 'Analyze a food photo using AI and return calorie estimation',
+      tags: ['Meals'],
+      security: [{ telegramAuth: [] }],
+      body: {
+        type: 'object',
+        required: ['photo'],
+        properties: {
+          photo: { type: 'string', description: 'Base64-encoded image data (without data: prefix)' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            is_food: { type: 'boolean' },
+            food_confidence: { type: 'number' },
+            estimated_calories: { type: 'number', nullable: true },
+            description: { type: 'string', nullable: true },
+          },
+        },
+      },
+    },
+    handler: async (request: FastifyRequest<{ Body: { photo: string } }>, reply: FastifyReply) => {
+      if (!request.user?.userId) {
+        return reply.status(404).send({ error: 'User not found in system' });
+      }
+
+      const { photo } = request.body;
+      if (!photo) {
+        return reply.status(400).send({ error: 'Photo data is required' });
+      }
+
+      // Remove data URL prefix if present
+      const base64Data = photo.replace(/^data:image\/\w+;base64,/, '');
+      const imageBuffer = Buffer.from(base64Data, 'base64');
+
+      if (imageBuffer.length === 0) {
+        return reply.status(400).send({ error: 'Invalid image data' });
+      }
+
+      if (imageBuffer.length > 10 * 1024 * 1024) {
+        return reply.status(400).send({ error: 'Image too large (max 10MB)' });
+      }
+
+      const foodService = getFoodVisionService(logger);
+      const result = await foodService.analyze(imageBuffer);
+
+      return reply.send(result);
     },
   });
 

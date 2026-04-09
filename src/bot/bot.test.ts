@@ -52,6 +52,20 @@ vi.mock('grammy', () => {
   };
 });
 
+// Mock accessGuard
+vi.mock('./accessGuard.js', () => ({
+  createAccessGuard: vi.fn(() => vi.fn((_ctx: unknown, next: () => Promise<void>) => next())),
+}));
+
+// Mock accessControl
+vi.mock('./accessControl.js', () => ({
+  getAccessControl: vi.fn(() => ({
+    isSuperAdmin: vi.fn().mockReturnValue(false),
+    isManager: vi.fn().mockReturnValue(false),
+  })),
+  resetAccessControl: vi.fn(),
+}));
+
 // Mock @grammyjs/runner
 vi.mock('@grammyjs/runner', () => ({
   run: vi.fn(() => ({
@@ -65,6 +79,7 @@ function createMockConfig(): Config {
   return {
     bot: {
       token: 'test-token-123',
+      name: 'TestBot',
       webhookUrl: 'https://example.com',
       appUrl: 'https://app.example.com',
     },
@@ -89,6 +104,7 @@ function createMockConfig(): Config {
       host: '0.0.0.0',
     },
     timezone: 'Europe/Moscow',
+    superAdminId: 123456789,
   };
 }
 
@@ -143,8 +159,8 @@ describe('Bot Module', () => {
 
       const bot = createBot(config, logger);
 
-      // Should be called at least twice (sequentialize + logging)
-      expect(bot.use).toHaveBeenCalledTimes(2);
+      // Should be called 3 times: sequentialize + accessGuard + logging
+      expect(bot.use).toHaveBeenCalledTimes(3);
     });
 
     it('should register /start command', async () => {
@@ -228,10 +244,10 @@ describe('Bot Module', () => {
 
       createBot(config, logger);
 
-      // Get the logging middleware (second call to use)
+      // Get the logging middleware (third call to use: sequentialize, accessGuard, logging)
       type MockCall = [unknown];
       const useCalls = mockBotInstance.use.mock.calls as MockCall[];
-      const loggingMiddleware = useCalls[1]?.[0] as (
+      const loggingMiddleware = useCalls[2]?.[0] as (
         ctx: Record<string, unknown>,
         next: () => Promise<void>
       ) => Promise<void>;
@@ -308,6 +324,7 @@ describe('Bot Module', () => {
 
       const mockReply = vi.fn().mockResolvedValue(undefined);
       const mockCtx = {
+        from: { id: 555 },
         reply: mockReply,
       };
 

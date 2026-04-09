@@ -77,3 +77,34 @@ model MealEntry {
   @@index([userId, recordedAt])
   @@map("meal_entries")
 }
+
+// Access control: allowed chats (groups) whitelist
+model AllowedChat {
+  id             String   @id @default(cuid())
+  telegramChatId BigInt   @unique @map("telegram_chat_id")
+  title          String?
+  addedByUserId  BigInt   @map("added_by_user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("allowed_chats")
+}
+
+// Access control: allowed users (personal chats) whitelist
+model AllowedUser {
+  id             String   @id @default(cuid())
+  telegramUserId BigInt   @unique @map("telegram_user_id")
+  addedByUserId  BigInt   @map("added_by_user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("allowed_users")
+}
+
+// Access control: managers who can manage whitelists
+model Manager {
+  id             String   @id @default(cuid())
+  telegramUserId BigInt   @unique @map("telegram_user_id")
+  addedByUserId  BigInt   @map("added_by_user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("managers")
+}

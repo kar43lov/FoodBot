@@ -18,7 +18,11 @@
       "Bash(git push:*)",
       "Bash(git pull:*)",
       "Bash(git checkout:*)",
-      "mcp__sequential-thinking__sequentialthinking"
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(ls /Users/pgmac/Data/prjcts/FoodBot/src/web/.env*)",
+      "Skill(planning:make)",
+      "Bash(ls /Users/pgmac/Data/prjcts/FoodBot/.env*)",
+      "Bash(npx tsc:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

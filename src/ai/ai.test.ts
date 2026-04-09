@@ -32,6 +32,8 @@ describe('FoodVisionService', () => {
     process.env.AI_FOOD_CONFIDENCE_THRESHOLD = '0.6';
     process.env.MODE = 'dev';
     process.env.LOG_LEVEL = 'error';
+    process.env.SUPER_ADMIN_ID = '123456789';
+    process.env.BOT_NAME = 'TestBot';
   });
 
   afterEach(() => {

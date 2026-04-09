@@ -5,6 +5,7 @@ import cors from '@fastify/cors';
 import pino from 'pino';
 import { Config } from '../config/index.js';
 import { handlePhoto } from './photoHandler.js';
+import { createAccessGuard } from './accessGuard.js';
 import {
   handleStartCommand,
   handleHelpCommand,
@@ -13,6 +14,15 @@ import {
   handleProjectCommand,
   handleSetAdminCommand,
 } from './commands.js';
+import {
+  handleAllowChatCommand,
+  handleDenyChatCommand,
+  handleAllowUserCommand,
+  handleDenyUserCommand,
+  handleSetManagerCommand,
+  handleRemoveManagerCommand,
+  handleListAllowedCommand,
+} from './adminCommands.js';
 import { registerApiRoutes } from '../api/index.js';
 
 /**
@@ -28,6 +38,9 @@ export function createBot(config: Config, logger: pino.Logger): Bot<BotContext> 
 
   // Sequentialize updates by chat to prevent race conditions
   bot.use(sequentialize((ctx) => ctx.chat?.id.toString() ?? ctx.from?.id.toString() ?? ''));
+
+  // Access control guard — blocks non-whitelisted chats/users
+  bot.use(createAccessGuard());
 
   // Logging middleware
   bot.use(async (ctx, next) => {
@@ -67,6 +80,15 @@ export function createBot(config: Config, logger: pino.Logger): Bot<BotContext> 
   bot.command('myweek', handleMyWeekCommand);
   bot.command('project', handleProjectCommand);
   bot.command('setadmin', handleSetAdminCommand);
+
+  // Admin commands (access control)
+  bot.command('allowchat', handleAllowChatCommand);
+  bot.command('denychat', handleDenyChatCommand);
+  bot.command('allowuser', handleAllowUserCommand);
+  bot.command('denyuser', handleDenyUserCommand);
+  bot.command('setmanager', handleSetManagerCommand);
+  bot.command('removemanager', handleRemoveManagerCommand);
+  bot.command('listallowed', handleListAllowedCommand);
 
   // Photo handler - process food images
   bot.on('message:photo', async (ctx) => {
