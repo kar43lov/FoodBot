@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__get-library-docs",
+      "Skill(taches-cc-resources:run-prompt)",
+      "Bash(powershell -Command:*)",
+      "Skill(taches-cc-resources:create-slash-command)",
+      "Skill(taches-cc-resources:create-slash-commands)",
+      "Skill(pg.project)",
+      "WebSearch",
+      "Bash(dir:*)",
+      "Bash(git init:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(git checkout:*)",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(ls /Users/pgmac/Data/prjcts/FoodBot/src/web/.env*)",
+      "Skill(planning:make)",
+      "Bash(ls /Users/pgmac/Data/prjcts/FoodBot/.env*)",
+      "Bash(npx tsc:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "playwright"
+  ]
+}

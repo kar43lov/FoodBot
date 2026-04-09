@@ -1,0 +1,124 @@
+// This is the production Prisma schema file for PostgreSQL
+// Use with: DATABASE_URL=postgresql://... npx prisma migrate deploy --schema=prisma/schema.prod.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Project represents a Telegram chat (group or personal)
+model Project {
+  id             String      @id @default(cuid())
+  telegramChatId BigInt      @unique @map("telegram_chat_id")
+  title          String
+  type           ProjectType
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  memberships Membership[]
+  mealEntries MealEntry[]
+
+  @@map("projects")
+}
+
+enum ProjectType {
+  group
+  personal
+}
+
+// User represents a Telegram user
+model User {
+  id             String   @id @default(cuid())
+  telegramUserId BigInt   @unique @map("telegram_user_id")
+  firstName      String   @map("first_name")
+  username       String?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  memberships Membership[]
+  mealEntries MealEntry[]
+
+  @@map("users")
+}
+
+// Membership connects users to projects with roles
+model Membership {
+  id        String         @id @default(cuid())
+  projectId String         @map("project_id")
+  userId    String         @map("user_id")
+  role      MembershipRole @default(member)
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("memberships")
+}
+
+enum MembershipRole {
+  member
+  admin
+}
+
+// MealEntry stores food intake records
+model MealEntry {
+  id                String          @id @default(cuid())
+  projectId         String          @map("project_id")
+  userId            String          @map("user_id")
+  recordedAt        DateTime        @map("recorded_at")
+  caloriesEstimated Int             @map("calories_estimated")
+  description       String?
+  source            MealEntrySource @default(photo)
+  photoFileId       String?         @map("photo_file_id")
+  aiConfidence      Float?          @map("ai_confidence")
+  needsReview       Boolean         @default(false) @map("needs_review")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, recordedAt])
+  @@index([userId, recordedAt])
+  @@map("meal_entries")
+}
+
+enum MealEntrySource {
+  photo
+  manual
+  web
+}
+
+// Access control: allowed chats (groups) whitelist
+model AllowedChat {
+  id             String   @id @default(cuid())
+  telegramChatId BigInt   @unique @map("telegram_chat_id")
+  title          String?
+  addedByUserId  BigInt   @map("added_by_user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("allowed_chats")
+}
+
+// Access control: allowed users (personal chats) whitelist
+model AllowedUser {
+  id             String   @id @default(cuid())
+  telegramUserId BigInt   @unique @map("telegram_user_id")
+  addedByUserId  BigInt   @map("added_by_user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("allowed_users")
+}
+
+// Access control: managers who can manage whitelists
+model Manager {
+  id             String   @id @default(cuid())
+  telegramUserId BigInt   @unique @map("telegram_user_id")
+  addedByUserId  BigInt   @map("added_by_user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("managers")
+}
