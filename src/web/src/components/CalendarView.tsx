@@ -7,6 +7,7 @@ interface CalendarViewProps {
   meals: MealEntry[];
   users: ProjectUser[];
   onCellClick: (userId: string, date: string, meals: MealEntry[]) => void;
+  onMealClick?: (meal: MealEntry) => void;
 }
 
 interface DayData {
@@ -112,7 +113,7 @@ function formatWeekRange(days: DayData[]): string {
   return `${first.getDate()} ${first.toLocaleDateString('ru-RU', { month: 'short' })} - ${last.getDate()} ${last.toLocaleDateString('ru-RU', { month: 'short', year: 'numeric' })}`;
 }
 
-export default function CalendarView({ meals, users, onCellClick }: CalendarViewProps) {
+export default function CalendarView({ meals, users, onCellClick, onMealClick }: CalendarViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(() => new Date());
 
@@ -173,82 +174,78 @@ export default function CalendarView({ meals, users, onCellClick }: CalendarView
     return { meals: cellMeals, totalCalories };
   };
 
-  const weekDayHeaders = viewMode === 'week'
-    ? days
-    : days.slice(0, 7);
-
   return (
     <div className="card">
       {/* Header with navigation */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={navigatePrev}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            aria-label="Предыдущий период"
-          >
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <h3 className="text-lg font-medium text-gray-900 min-w-[200px] text-center">
-            {viewMode === 'week' ? formatWeekRange(days) : formatMonthYear(currentDate)}
-          </h3>
-          <button
-            onClick={navigateNext}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            aria-label="Следующий период"
-          >
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
+      <div className="flex flex-col gap-3 mb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1 min-w-0">
+            <button
+              onClick={navigatePrev}
+              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+              aria-label="Предыдущий период"
+            >
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <h3 className="text-base sm:text-lg font-medium text-gray-900 text-center truncate">
+              {viewMode === 'week' ? formatWeekRange(days) : formatMonthYear(currentDate)}
+            </h3>
+            <button
+              onClick={navigateNext}
+              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+              aria-label="Следующий период"
+            >
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={goToToday}
-            className="px-3 py-1.5 text-sm text-telegram-blue hover:bg-blue-50 rounded-lg transition-colors"
-          >
-            Сегодня
-          </button>
-          <div className="flex bg-gray-100 rounded-lg p-0.5">
+          <div className="flex items-center gap-1 flex-shrink-0">
             <button
-              onClick={() => setViewMode('week')}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                viewMode === 'week'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              onClick={goToToday}
+              className="px-2 py-1.5 text-sm text-telegram-blue hover:bg-blue-50 rounded-lg transition-colors"
             >
-              Неделя
+              Сегодня
             </button>
-            <button
-              onClick={() => setViewMode('month')}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                viewMode === 'month'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Месяц
-            </button>
+            <div className="flex bg-gray-100 rounded-lg p-0.5">
+              <button
+                onClick={() => setViewMode('week')}
+                className={`px-2 sm:px-3 py-1.5 text-sm rounded-md transition-colors ${
+                  viewMode === 'week'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Неделя
+              </button>
+              <button
+                onClick={() => setViewMode('month')}
+                className={`px-2 sm:px-3 py-1.5 text-sm rounded-md transition-colors ${
+                  viewMode === 'month'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Месяц
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Calendar grid */}
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr>
-              <th className="p-2 text-left text-xs font-medium text-gray-500 w-24 min-w-[96px]">
-                Участник
-              </th>
-              {weekDayHeaders.map((day) => (
-                <th
+        {viewMode === 'week' ? (
+          <div>
+            {/* Day-of-week headers with dates */}
+            <div className="grid grid-cols-7 border-b border-gray-200">
+              {days.map((day) => (
+                <div
                   key={day.dateStr}
-                  className={`p-2 text-center text-xs font-medium min-w-[80px] ${
+                  className={`p-2 text-center text-xs font-medium ${
                     day.isToday ? 'text-telegram-blue' : 'text-gray-500'
                   }`}
                 >
@@ -256,61 +253,173 @@ export default function CalendarView({ meals, users, onCellClick }: CalendarView
                   <div className={`text-lg ${day.isToday ? 'font-bold' : 'font-normal text-gray-700'}`}>
                     {formatDayNumber(day.date)}
                   </div>
-                </th>
+                </div>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((user) => (
-              <tr key={user.userId} className="border-t border-gray-100">
-                <td className="p-2 text-sm font-medium text-gray-900">
-                  <div className="flex items-center gap-1">
-                    <span className="truncate max-w-[80px]">{user.firstName}</span>
-                    {user.role === 'admin' && (
-                      <span className="text-telegram-blue text-xs">★</span>
-                    )}
-                  </div>
-                </td>
-                {(viewMode === 'week' ? days : days).map((day) => {
-                  const { meals: cellMeals, totalCalories } = getCellData(user.userId, day.dateStr);
-                  const hasData = cellMeals.length > 0;
+            </div>
+            {/* Single row of day cells */}
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="grid grid-cols-7">
+                {days.map((day, dayIdx) => {
+                  const dayCellMeals: MealEntry[] = [];
+                  for (const user of users) {
+                    const { meals: userMeals } = getCellData(user.userId, day.dateStr);
+                    dayCellMeals.push(...userMeals);
+                  }
+                  const sortedCellMeals = [...dayCellMeals].sort(
+                    (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
+                  );
 
                   return (
-                    <td
-                      key={`${user.userId}_${day.dateStr}`}
-                      className={`p-1 text-center border-l border-gray-100 ${
-                        !day.isCurrentMonth && viewMode === 'month' ? 'bg-gray-50' : ''
-                      } ${day.isToday ? 'bg-blue-50' : ''}`}
+                    <div
+                      key={day.dateStr}
+                      onClick={() => {
+                        const userId = users[0]?.userId || '';
+                        onCellClick(userId, day.dateStr, dayCellMeals);
+                      }}
+                      className={`p-1 sm:p-1.5 min-h-[70px] sm:min-h-[90px] text-left align-top transition-colors cursor-pointer ${
+                        dayIdx > 0 ? 'border-l border-gray-200' : ''
+                      } ${day.isToday ? 'bg-blue-50' : 'bg-white'} hover:bg-gray-50`}
                     >
-                      <button
-                        onClick={() => onCellClick(user.userId, day.dateStr, cellMeals)}
-                        className={`w-full p-2 rounded-lg transition-colors ${
-                          hasData
-                            ? 'bg-green-100 hover:bg-green-200 cursor-pointer'
-                            : 'hover:bg-gray-100 cursor-pointer'
-                        }`}
-                        title={hasData ? `${cellMeals.length} записей, ${totalCalories} ккал` : 'Нет записей'}
-                      >
-                        {hasData ? (
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {totalCalories}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {cellMeals.length} {cellMeals.length === 1 ? 'запись' : cellMeals.length < 5 ? 'записи' : 'записей'}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-gray-300 text-sm">—</div>
-                        )}
-                      </button>
-                    </td>
+                      {sortedCellMeals.length > 0 ? (
+                        <div className="space-y-0.5">
+                          {sortedCellMeals.map((meal) => {
+                            const shortDesc = meal.description
+                              ? meal.description.length > 15
+                                ? meal.description.slice(0, 15) + '...'
+                                : meal.description
+                              : '';
+                            return (
+                              <div
+                                key={meal.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onMealClick?.(meal);
+                                }}
+                                className="text-[10px] sm:text-xs px-1 sm:px-1.5 py-0.5 rounded bg-green-100 text-green-800 truncate hover:bg-green-200 transition-colors cursor-pointer"
+                                title={`${meal.caloriesEstimated} ккал${meal.description ? ' — ' + meal.description : ''}`}
+                              >
+                                <span className="font-medium">{meal.caloriesEstimated}</span>
+                                {shortDesc && (
+                                  <span className="text-green-600 ml-1 hidden sm:inline">({shortDesc})</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-gray-300 text-xs sm:text-sm text-center mt-4 sm:mt-6">—</div>
+                      )}
+                    </div>
                   );
                 })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Month view: calendar grid with weeks as rows */
+          <div>
+            {/* Day-of-week headers */}
+            <div className="grid grid-cols-7 border-b border-gray-200">
+              {days.slice(0, 7).map((day) => (
+                <div
+                  key={day.dateStr}
+                  className="p-2 text-center text-xs font-medium text-gray-500"
+                >
+                  {formatDayHeader(day.date)}
+                </div>
+              ))}
+            </div>
+            {/* Weeks */}
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              {Array.from({ length: Math.ceil(days.length / 7) }, (_, weekIdx) => {
+                const weekDays = days.slice(weekIdx * 7, weekIdx * 7 + 7);
+                return (
+                  <div key={weekIdx} className={`grid grid-cols-7 ${weekIdx > 0 ? 'border-t border-gray-200' : ''}`}>
+                    {weekDays.map((day, dayIdx) => {
+                      // Aggregate all users' meals for this day
+                      const dayCellMeals: MealEntry[] = [];
+                      for (const user of users) {
+                        const { meals: userMeals } = getCellData(user.userId, day.dateStr);
+                        dayCellMeals.push(...userMeals);
+                      }
+                      const sortedCellMeals = [...dayCellMeals].sort(
+                        (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
+                      );
+
+                      return (
+                        <div
+                          key={day.dateStr}
+                          onClick={() => {
+                            const userId = users[0]?.userId || '';
+                            onCellClick(userId, day.dateStr, dayCellMeals);
+                          }}
+                          className={`p-1 sm:p-1.5 min-h-[70px] sm:min-h-[90px] text-left align-top transition-colors cursor-pointer ${
+                            dayIdx > 0 ? 'border-l border-gray-200' : ''
+                          } ${!day.isCurrentMonth ? 'bg-gray-50' : 'bg-white'} ${
+                            day.isToday ? 'bg-blue-50' : ''
+                          } hover:bg-gray-50`}
+                        >
+                          <div className={`text-xs sm:text-sm mb-0.5 sm:mb-1 ${
+                            day.isToday
+                              ? 'inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-telegram-blue text-white font-bold text-[10px] sm:text-sm'
+                              : !day.isCurrentMonth ? 'text-gray-400' : 'text-gray-700'
+                          }`}>
+                            {formatDayNumber(day.date)}
+                          </div>
+                          {sortedCellMeals.length > 0 && (
+                            <div className="space-y-0.5">
+                              {sortedCellMeals.map((meal) => {
+                                const shortDesc = meal.description
+                                  ? meal.description.length > 15
+                                    ? meal.description.slice(0, 15) + '...'
+                                    : meal.description
+                                  : '';
+                                return (
+                                  <div
+                                    key={meal.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onMealClick?.(meal);
+                                    }}
+                                    className="text-[10px] sm:text-xs px-1 sm:px-1.5 py-0.5 rounded bg-green-100 text-green-800 truncate hover:bg-green-200 transition-colors cursor-pointer"
+                                    title={`${meal.caloriesEstimated} ккал${meal.description ? ' — ' + meal.description : ''}`}
+                                  >
+                                    <span className="font-medium">{meal.caloriesEstimated}</span>
+                                    {shortDesc && (
+                                      <span className="text-green-600 ml-1 hidden sm:inline">({shortDesc})</span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+            {/* Per-user breakdown below calendar */}
+            {users.length > 1 && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <div className="text-xs font-medium text-gray-500 mb-2">По участникам:</div>
+                <div className="flex flex-wrap gap-2">
+                  {users.map((user) => {
+                    const userTotal = days
+                      .filter(d => d.isCurrentMonth)
+                      .reduce((sum, d) => sum + getCellData(user.userId, d.dateStr).totalCalories, 0);
+                    return (
+                      <div key={user.userId} className="text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded">
+                        {user.firstName}{user.role === 'admin' ? ' ★' : ''}: {userTotal} ккал
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Legend */}

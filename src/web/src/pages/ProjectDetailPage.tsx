@@ -124,6 +124,19 @@ export default function ProjectDetailPage() {
     });
   }, [usersMap]);
 
+  const handleMealClick = useCallback((meal: MealEntry) => {
+    const u = usersMap.get(meal.userId);
+    const mealDate = new Date(meal.recordedAt);
+    const dateStr = `${mealDate.getFullYear()}-${String(mealDate.getMonth() + 1).padStart(2, '0')}-${String(mealDate.getDate()).padStart(2, '0')}`;
+    setModalState({
+      isOpen: true,
+      userId: meal.userId,
+      userName: u?.firstName || meal.user.firstName || 'Пользователь',
+      date: dateStr,
+      meals: [meal],
+    });
+  }, [usersMap]);
+
   const handleCloseModal = useCallback(() => {
     setModalState((prev) => ({ ...prev, isOpen: false }));
   }, []);
@@ -275,14 +288,14 @@ export default function ProjectDetailPage() {
     <div className="min-h-screen p-4">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center">
+        <div className="flex items-center justify-between mb-6 gap-2">
+          <div className="flex items-center min-w-0">
             <button
               onClick={() => navigate('/projects')}
-              className="mr-4 p-2 hover:bg-gray-100 rounded-full"
+              className="mr-2 sm:mr-4 p-2 hover:bg-gray-100 rounded-full flex-shrink-0"
             >
               <svg
-                className="w-6 h-6 text-gray-600"
+                className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -295,9 +308,9 @@ export default function ProjectDetailPage() {
                 />
               </svg>
             </button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{project.title}</h1>
-              <p className="text-gray-500">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{project.title}</h1>
+              <p className="text-sm sm:text-base text-gray-500">
                 {project.type === 'personal' ? 'Личный проект' : 'Группа'}
                 {' • '}{users.length} участник{users.length === 1 ? '' : users.length < 5 ? 'а' : 'ов'}
               </p>
@@ -334,6 +347,7 @@ export default function ProjectDetailPage() {
             meals={meals}
             users={users}
             onCellClick={handleCellClick}
+            onMealClick={handleMealClick}
           />
         </div>
 

@@ -54,6 +54,13 @@ export interface MealEntry {
   };
 }
 
+export interface PhotoAnalysisResult {
+  is_food: boolean;
+  food_confidence: number;
+  estimated_calories: number | null;
+  description: string | null;
+}
+
 export interface CreateMealData {
   projectId: string;
   recordedAt: string;
@@ -167,6 +174,12 @@ export const api = {
   deleteMeal: (token: string, mealId: string): Promise<{ success: boolean }> =>
     request<{ success: boolean }>(`/meals/${mealId}`, {
       method: 'DELETE',
+    }, token),
+
+  analyzePhoto: (token: string, photoBase64: string): Promise<PhotoAnalysisResult> =>
+    request<PhotoAnalysisResult>('/meals/analyze-photo', {
+      method: 'POST',
+      body: JSON.stringify({ photo: photoBase64 }),
     }, token),
 };
 

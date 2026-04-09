@@ -4,6 +4,7 @@ import { loadConfig } from './config/index.js';
 import { createBot, startBot } from './bot/index.js';
 import { startApiServer } from './api/index.js';
 import { prisma } from './db/index.js';
+import { getAccessControl } from './bot/accessControl.js';
 
 /**
  * Food Calories Bot - Entry Point
@@ -45,6 +46,11 @@ async function main(): Promise<void> {
     logLevel: config.log.level,
     nodeEnv: process.env.NODE_ENV,
   });
+
+  // Initialize access control
+  const accessControl = getAccessControl(config.superAdminId);
+  await accessControl.loadFromDb();
+  logger.info({ event: 'access_control_loaded' });
 
   // Create bot
   const bot = createBot(config, logger);

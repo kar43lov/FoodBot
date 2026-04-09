@@ -21,6 +21,8 @@ describe('Config', () => {
     delete process.env.HOST;
     delete process.env.WEBHOOK_URL;
     delete process.env.APP_URL;
+    delete process.env.BOT_NAME;
+    delete process.env.SUPER_ADMIN_ID;
   });
 
   afterEach(() => {
@@ -30,8 +32,10 @@ describe('Config', () => {
 
   function setRequiredEnvVars(): void {
     process.env.BOT_TOKEN = 'test-bot-token';
+    process.env.BOT_NAME = 'TestBot';
     process.env.DATABASE_URL = 'file:./test.db';
     process.env.OPENAI_API_KEY = 'sk-test-key';
+    process.env.SUPER_ADMIN_ID = '123456789';
   }
 
   describe('loadConfig', () => {
@@ -158,6 +162,30 @@ describe('Config', () => {
 
       expect(() => loadConfig()).toThrow();
     });
+
+    it('should throw error when SUPER_ADMIN_ID is missing', () => {
+      process.env.BOT_TOKEN = 'test-bot-token';
+      process.env.DATABASE_URL = 'file:./test.db';
+      process.env.OPENAI_API_KEY = 'sk-test-key';
+
+      expect(() => loadConfig()).toThrow('SUPER_ADMIN_ID');
+    });
+
+    it('should parse SUPER_ADMIN_ID as number', () => {
+      setRequiredEnvVars();
+      process.env.SUPER_ADMIN_ID = '987654321';
+
+      const config = loadConfig();
+
+      expect(config.superAdminId).toBe(987654321);
+    });
+
+    it('should reject non-numeric SUPER_ADMIN_ID', () => {
+      setRequiredEnvVars();
+      process.env.SUPER_ADMIN_ID = 'not-a-number';
+
+      expect(() => loadConfig()).toThrow();
+    });
   });
 
   describe('getConfig', () => {
@@ -193,6 +221,7 @@ describe('Config', () => {
 
       expect(config.bot).toEqual({
         token: 'test-bot-token',
+        name: 'TestBot',
         webhookUrl: 'https://example.com/webhook',
         appUrl: 'https://example.com',
       });

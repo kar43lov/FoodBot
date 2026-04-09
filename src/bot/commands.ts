@@ -1,6 +1,7 @@
 import type { Context } from 'grammy';
 import { prisma, MembershipRole } from '../db/index.js';
 import { upsertProject, upsertUser, upsertMembership } from './photoHandler.js';
+import { getAccessControl } from './accessControl.js';
 
 /**
  * Bot commands module.
@@ -13,14 +14,47 @@ import { upsertProject, upsertUser, upsertMembership } from './photoHandler.js';
  */
 export async function handleStartCommand(ctx: Context): Promise<void> {
   const firstName = ctx.from?.first_name ?? 'Пользователь';
+  const userId = ctx.from?.id;
+  const ac = getAccessControl();
 
-  await ctx.reply(
+  const isSuperAdmin = userId !== undefined && ac.isSuperAdmin(userId);
+  const isManager = userId !== undefined && ac.isManager(BigInt(userId));
+
+  let text =
     `Привет, ${firstName}! 👋\n\n` +
-      `Я бот для отслеживания калорийности еды.\n\n` +
-      `📸 Отправь мне фото еды, и я оценю её калорийность.\n` +
-      `📊 Статистику можно смотреть командами /today и /myweek.\n\n` +
-      `Используй /help для списка всех команд.`
-  );
+    `Я бот для отслеживания калорийности еды.\n` +
+    `📸 Отправь фото еды — я оценю калорийность.\n\n` +
+    `📋 Команды:\n` +
+    `/start — Начать работу с ботом\n` +
+    `/help — Справка по командам\n` +
+    `/today — Калории за сегодня\n` +
+    `/myweek — Статистика за неделю\n` +
+    `/project — Информация о проекте/группе\n` +
+    `/setadmin @username — Назначить админа группы`;
+
+  if (isManager || isSuperAdmin) {
+    text +=
+      `\n\n🔧 Команды менеджера:\n` +
+      `/allowchat — Разрешить группу (из группы или по ID)\n` +
+      `/denychat — Запретить группу\n` +
+      `/allowuser <id/@user> — Разрешить пользователя\n` +
+      `/denyuser <id> — Запретить пользователя\n` +
+      `/listallowed — Список разрешённых`;
+  }
+
+  if (isSuperAdmin) {
+    text +=
+      `\n\n👑 Команды суперадмина:\n` +
+      `/setmanager <id> — Назначить менеджера\n` +
+      `/removemanager <id> — Удалить менеджера`;
+  }
+
+  text +=
+    `\n\n💡 В группах доступны:\n` +
+    `/today, /myweek, /project, /setadmin\n` +
+    `+ отправка фото еды`;
+
+  await ctx.reply(text);
 }
 
 /**
@@ -28,16 +62,40 @@ export async function handleStartCommand(ctx: Context): Promise<void> {
  * Shows all available commands with descriptions.
  */
 export async function handleHelpCommand(ctx: Context): Promise<void> {
-  await ctx.reply(
+  const userId = ctx.from?.id;
+  const ac = getAccessControl();
+
+  const isSuperAdmin = userId !== undefined && ac.isSuperAdmin(userId);
+  const isManager = userId !== undefined && ac.isManager(BigInt(userId));
+
+  let text =
     `📖 Список команд:\n\n` +
-      `/start — Начать работу с ботом\n` +
-      `/help — Показать это сообщение\n` +
-      `/today — Статистика калорий за сегодня\n` +
-      `/myweek — Статистика за неделю\n` +
-      `/project — Информация о текущем проекте/группе\n` +
-      `/setadmin @username — Назначить админа (только для админов)\n\n` +
-      `📸 Просто отправь фото еды, чтобы записать калории!`
-  );
+    `/start — Начать работу с ботом\n` +
+    `/help — Показать это сообщение\n` +
+    `/today — Статистика калорий за сегодня\n` +
+    `/myweek — Статистика за неделю\n` +
+    `/project — Информация о проекте/группе\n` +
+    `/setadmin @username — Назначить админа группы\n\n` +
+    `📸 Просто отправь фото еды, чтобы записать калории!`;
+
+  if (isManager || isSuperAdmin) {
+    text +=
+      `\n\n🔧 Менеджер:\n` +
+      `/allowchat — Разрешить группу\n` +
+      `/denychat — Запретить группу\n` +
+      `/allowuser <id/@user> — Разрешить пользователя\n` +
+      `/denyuser <id> — Запретить пользователя\n` +
+      `/listallowed — Список разрешённых`;
+  }
+
+  if (isSuperAdmin) {
+    text +=
+      `\n\n👑 Суперадмин:\n` +
+      `/setmanager <id> — Назначить менеджера\n` +
+      `/removemanager <id> — Удалить менеджера`;
+  }
+
+  await ctx.reply(text);
 }
 
 /**
