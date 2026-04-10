@@ -187,19 +187,10 @@ export function registerApiRoutes(
   fastify.addHook(
     'preHandler',
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-      // Skip auth for public routes
-      const publicPaths = ['/health', '/docs', '/auth/telegram', '/auth/webapp'];
-      const isPublic =
-        publicPaths.some((p) => request.url.startsWith(p)) ||
-        request.url === '/' ||
-        request.url.startsWith('/docs/') ||
-        request.url.startsWith('/assets/') ||
-        request.url.endsWith('.html') ||
-        request.url.endsWith('.css') ||
-        request.url.endsWith('.js') ||
-        request.url.endsWith('.svg') ||
-        request.url.endsWith('.png') ||
-        request.url.endsWith('.ico');
+      // Only require auth for API routes; everything else is frontend/public
+      const apiPaths = ['/projects', '/meals', '/auth/me'];
+      const isApiRoute = apiPaths.some((p) => request.url.startsWith(p));
+      const isPublic = !isApiRoute;
 
       if (isPublic) return;
 
