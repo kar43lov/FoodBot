@@ -1,8 +1,11 @@
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
+import fastifyStatic from '@fastify/static';
 import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
 import crypto from 'crypto';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import pino from 'pino';
 import { Config } from '../config/index.js';
 import { prisma, MembershipRole, MealEntrySource } from '../db/index.js';
@@ -189,7 +192,14 @@ export function registerApiRoutes(
       const isPublic =
         publicPaths.some((p) => request.url.startsWith(p)) ||
         request.url === '/' ||
-        request.url.startsWith('/docs/');
+        request.url.startsWith('/docs/') ||
+        request.url.startsWith('/assets/') ||
+        request.url.endsWith('.html') ||
+        request.url.endsWith('.css') ||
+        request.url.endsWith('.js') ||
+        request.url.endsWith('.svg') ||
+        request.url.endsWith('.png') ||
+        request.url.endsWith('.ico');
 
       if (isPublic) return;
 
@@ -1139,6 +1149,22 @@ export function registerApiRoutes(
 
       return { success: true };
     },
+  });
+
+  // Serve web frontend (SPA)
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const webDistPath = path.join(__dirname, '..', 'web', 'dist');
+
+  void fastify.register(fastifyStatic, {
+    root: webDistPath,
+    prefix: '/',
+    decorateReply: false,
+    wildcard: false,
+  });
+
+  // SPA fallback: serve index.html for all unmatched routes
+  fastify.setNotFoundHandler(async (_request, reply) => {
+    return reply.sendFile('index.html', webDistPath);
   });
 }
 

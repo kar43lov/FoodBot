@@ -14,7 +14,7 @@ Telegram-бот для отслеживания калорийности еды 
 ## Требования
 
 - Node.js 20+
-- PostgreSQL 16+ (для production) или SQLite (для разработки)
+- SQLite (dev и production)
 - OpenAI API ключ с доступом к GPT-4 Vision
 - Telegram Bot Token
 
@@ -101,52 +101,17 @@ npm run web:dev
 
 В режиме разработки бот использует long polling и не требует публичного URL.
 
-### Production (Webhook)
+### Production
+
+Деплой на VPS через systemd + nginx (без Docker). Подробнее: [docs/DEPLOY.md](docs/DEPLOY.md)
 
 ```bash
-# Установить переменные окружения
-export MODE=prod
-export WEBHOOK_URL=https://your-domain.com/webhook
-
-# Собрать приложение
-npm run build
-npm run web:build
-
-# Запустить миграции
-npx prisma migrate deploy
-
-# Запустить
-npm start
+# Из Claude Code
+/pg.deploy              # deploy main
+/pg.deploy develop      # deploy specific branch
 ```
 
-### Docker
-
-```bash
-# Создать .env файл с необходимыми переменными
-
-# Запустить
-docker-compose up -d
-
-# Посмотреть логи
-docker-compose logs -f app
-```
-
-## Настройка Webhook в Telegram
-
-Для production режима нужно настроить webhook:
-
-```bash
-# Установить webhook
-curl -X POST "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook" \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://your-domain.com/webhook"}'
-
-# Проверить статус
-curl "https://api.telegram.org/bot<BOT_TOKEN>/getWebhookInfo"
-
-# Удалить webhook (для перехода на polling)
-curl -X POST "https://api.telegram.org/bot<BOT_TOKEN>/deleteWebhook"
-```
+Бот автоматически устанавливает webhook при старте в `MODE=prod`.
 
 ## Команды бота
 
@@ -181,12 +146,14 @@ curl -X POST "https://api.telegram.org/bot<BOT_TOKEN>/deleteWebhook"
 
 Подробная инструкция: [docs/DEPLOY.md](docs/DEPLOY.md)
 
-```bash
-# На сервере
-./deploy.sh
+**Сервер:** karvpn (1 GB RAM, Ubuntu 24.04)
+**Стек:** Node.js 20 + systemd + SQLite + nginx + Let's Encrypt
+**Домен:** cheatmealday.karlov.dev
 
+```bash
 # Из Claude Code
-/deploy
+/pg.deploy              # main branch
+/pg.deploy develop      # specific branch
 ```
 
 ## Структура проекта
@@ -200,17 +167,10 @@ curl -X POST "https://api.telegram.org/bot<BOT_TOKEN>/deleteWebhook"
   /db          - Prisma клиент
   /web         - React + Vite + Tailwind
 /prisma
-  schema.prisma     - SQLite схема (dev)
-  schema.prod.prisma - PostgreSQL схема (prod)
-  /migrations
-/docker
-  entrypoint.sh
-  Caddyfile
+  schema.prisma      - SQLite схема (dev и prod)
+  schema.prod.prisma - PostgreSQL схема (не используется на текущем сервере)
 /docs
   DEPLOY.md
-Dockerfile
-docker-compose.yml
-deploy.sh
 ```
 
 ## API Endpoints
@@ -263,10 +223,10 @@ API документация доступна по адресу `/documentation`
 | Bot | grammy |
 | API | Fastify |
 | ORM | Prisma |
-| Database | PostgreSQL / SQLite |
+| Database | SQLite (Prisma) |
 | Frontend | React + Vite + Tailwind |
 | AI | OpenAI GPT-4 Vision |
-| Container | Docker |
+| Deploy | systemd + nginx |
 
 ## Архитектура
 

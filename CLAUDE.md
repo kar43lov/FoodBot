@@ -34,8 +34,8 @@ npm run db:migrate       # Run dev migrations
 npm run db:push          # Push schema changes
 npm run db:seed          # Insert test data
 
-# Production (Docker)
-docker-compose up -d     # PostgreSQL + app
+# Production deploy
+/pg.deploy               # deploy main to VPS
 ```
 
 ## Architecture
@@ -90,9 +90,15 @@ prisma/
 - Returns: `is_food`, `food_confidence`, `estimated_calories`, `description`
 - Exponential backoff: 3 attempts (1s, 2s, 4s delays)
 
+**Dual Prisma Schemas:**
+- `prisma/schema.prisma` — SQLite (dev), fields like `source` are `String`
+- `prisma/schema.prod.prisma` — PostgreSQL, uses proper enums (`MealEntrySource`, `MembershipRole`)
+- `src/db/index.ts` — exports const objects (`MealEntrySource.WEB = 'web'`) that work with both schemas
+- When adding enum-like fields: use `'value' as const` in test mocks to satisfy both schemas
+
 **Modes:**
-- `dev`: SQLite, long polling, pretty logs
-- `prod`: PostgreSQL, webhook, JSON logs
+- `dev`: SQLite, long polling, pretty logs (pino-pretty)
+- `prod`: SQLite on VPS, webhook, JSON logs
 
 ## Environment Variables
 
@@ -116,25 +122,30 @@ Optional:
 
 ## Deployment
 
-Деплой на VPS: `docs/DEPLOY.md`
+**Server:** karvpn (karvpn.isgood.host), Ubuntu 24.04, 1 GB RAM — no Docker (not enough RAM for build).
 
 ```bash
-# С сервера
-cd /opt/foodbot && ./deploy.sh
-
 # Из Claude Code
-/deploy              # main branch
-/deploy develop      # specific branch
+/pg.deploy              # main branch
+/pg.deploy develop      # specific branch
 ```
 
-**deploy.sh flow:** preflight checks → git pull → docker compose up --build → healthcheck → report
+**Stack:** Node.js 20 + systemd + SQLite + nginx reverse proxy + Let's Encrypt SSL
+
+**Deploy flow:** git pull → npm run build → systemctl restart foodbot → health check
 
 **Структура на сервере:**
 - `/opt/foodbot/` — git repo + .env (prod-only, не в git)
-- Caddy — reverse proxy + SSL (systemd, конфиг в `/etc/caddy/Caddyfile`)
-- Docker Compose — app (Node.js) + PostgreSQL
+- `/opt/foodbot/data/foodbot.db` — SQLite database
+- systemd service: `foodbot`
+- nginx: SNI routing on 443 → port 8444 → proxy_pass localhost:3000
+- Domain: `cheatmealday.karlov.dev`
 
-**Откат:** `git reset --hard HEAD~1 && docker compose up -d --build`
+**WEBHOOK_URL** в .env: `https://cheatmealday.karlov.dev` (без `/webhook` — код добавляет path сам)
+
+**Откат:** `ssh karvpn "cd /opt/foodbot && git reset --hard HEAD~1 && npm run build && systemctl restart foodbot"`
+
+**Важно:** на сервере также работает X-Ray VPN и psychologist-bot. Не трогать nginx stream/VPN конфиги.
 
 ## Code Style
 
