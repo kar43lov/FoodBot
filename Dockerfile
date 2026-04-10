@@ -1,6 +1,8 @@
 # Build stage - compile TypeScript and build web app
 FROM node:20-alpine AS builder
 
+RUN apk add --no-cache openssl
+
 WORKDIR /app
 
 # Install dependencies first (better layer caching)
@@ -27,6 +29,8 @@ RUN npm run build
 
 # Production stage - minimal runtime image
 FROM node:20-alpine AS production
+
+RUN apk add --no-cache openssl
 
 WORKDIR /app
 
