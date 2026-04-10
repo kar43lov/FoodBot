@@ -29,7 +29,7 @@ const mockMembership = {
   id: 'membership-test-123',
   projectId: mockProject.id,
   userId: mockUser.id,
-  role: 'admin',
+  role: 'admin' as const,
   createdAt: new Date('2024-01-01'),
 };
 
@@ -40,7 +40,7 @@ const mockMealEntry = {
   recordedAt: new Date('2024-01-15T12:00:00Z'),
   caloriesEstimated: 500,
   description: 'Test meal',
-  source: 'photo',
+  source: 'photo' as const,
   photoFileId: 'photo123',
   aiConfidence: 0.9,
   needsReview: false,
@@ -615,7 +615,7 @@ describe('API Integration Tests', () => {
           memberships: [mockMembership],
         },
       } as never);
-      vi.mocked(prisma.mealEntry.delete).mockResolvedValue(mockMealEntry);
+      vi.mocked(prisma.mealEntry.delete).mockResolvedValue(mockMealEntry as never);
 
       const response = await server.inject({
         method: 'DELETE',
@@ -639,7 +639,7 @@ describe('API Integration Tests', () => {
           memberships: [{ ...mockMembership, role: 'admin' }], // Is admin
         },
       } as never);
-      vi.mocked(prisma.mealEntry.delete).mockResolvedValue(mockMealEntry);
+      vi.mocked(prisma.mealEntry.delete).mockResolvedValue(mockMealEntry as never);
 
       const response = await server.inject({
         method: 'DELETE',
