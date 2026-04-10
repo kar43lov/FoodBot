@@ -1151,7 +1151,6 @@ export function registerApiRoutes(
   void fastify.register(fastifyStatic, {
     root: webDistPath,
     prefix: '/',
-    decorateReply: false,
     wildcard: false,
   });
 
