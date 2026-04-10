@@ -1,5 +1,6 @@
 import type { Context } from 'grammy';
 import { getAccessControl } from './accessControl.js';
+import { getConfig } from '../config/index.js';
 import { prisma } from '../db/index.js';
 
 function hasAdminAccess(ctx: Context): boolean {
@@ -51,7 +52,21 @@ export async function handleAllowChatCommand(ctx: Context): Promise<void> {
   }
 
   await ac.addChat(chatId, title, userId);
-  await ctx.reply(`✅ Группа ${title ?? chatId.toString()} добавлена в список разрешённых.`);
+
+  const config = getConfig();
+  const groupName = title ?? chatId.toString();
+  const botName = config.bot.name;
+
+  await ctx.reply(
+    `✅ Группа "${groupName}" добавлена в список разрешённых.\n\n` +
+      `Теперь все участники группы могут:\n` +
+      `📸 Отправлять фото еды — бот оценит калорийность\n` +
+      `📊 /today — посмотреть калории за сегодня\n` +
+      `📅 /myweek — статистика за неделю\n` +
+      `📋 /project — информация о группе и участниках\n\n` +
+      `🌐 Веб-интерфейс: откройте @${botName} → кнопка "Открыть" внизу — ` +
+      `там календарь, история записей и статистика группы.`
+  );
 }
 
 export async function handleDenyChatCommand(ctx: Context): Promise<void> {

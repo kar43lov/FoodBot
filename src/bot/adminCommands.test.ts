@@ -29,6 +29,13 @@ vi.mock('./accessControl.js', () => ({
   resetAccessControl: vi.fn(),
 }));
 
+// Mock config
+vi.mock('../config/index.js', () => ({
+  getConfig: vi.fn(() => ({
+    bot: { name: 'TestBot' },
+  })),
+}));
+
 // Mock prisma
 vi.mock('../db/index.js', () => ({
   prisma: {

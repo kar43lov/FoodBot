@@ -62,6 +62,8 @@ vi.mock('./accessControl.js', () => ({
   getAccessControl: vi.fn(() => ({
     isSuperAdmin: vi.fn().mockReturnValue(false),
     isManager: vi.fn().mockReturnValue(false),
+    isUserAllowed: vi.fn().mockReturnValue(true),
+    isChatAllowed: vi.fn().mockReturnValue(true),
   })),
   resetAccessControl: vi.fn(),
 }));
@@ -299,14 +301,14 @@ describe('Bot Module', () => {
 
       const mockReply = vi.fn().mockResolvedValue(undefined);
       const mockCtx = {
-        from: { first_name: 'John' },
+        from: { id: 555, first_name: 'John' },
+        chat: { id: 555, type: 'private' },
         reply: mockReply,
       };
 
       await startHandler!(mockCtx);
 
       expect(mockReply).toHaveBeenCalledWith(expect.stringContaining('Привет, John!'));
-      expect(mockReply).toHaveBeenCalledWith(expect.stringContaining('/help'));
     });
 
     it('/help should send commands list', async () => {

@@ -11,10 +11,19 @@ export const ADMIN_COMMANDS = [
   'listallowed',
 ] as const;
 
-function isAdminCommand(text: string | undefined): boolean {
-  if (!text) return false;
-  const command = text.split(/[\s@]/)[0]?.replace('/', '');
+const PUBLIC_COMMANDS = ['start', 'help'] as const;
+
+function getCommand(text: string | undefined): string | undefined {
+  if (!text) return undefined;
+  return text.split(/[\s@]/)[0]?.replace('/', '');
+}
+
+function isAdminCommand(command: string | undefined): boolean {
   return command !== undefined && (ADMIN_COMMANDS as readonly string[]).includes(command);
+}
+
+function isPublicCommand(command: string | undefined): boolean {
+  return command !== undefined && (PUBLIC_COMMANDS as readonly string[]).includes(command);
 }
 
 export function createAccessGuard(): (ctx: Context, next: NextFunction) => Promise<void> {
@@ -34,9 +43,16 @@ export function createAccessGuard(): (ctx: Context, next: NextFunction) => Promi
       return next();
     }
 
-    // Allow admin commands from superadmin/manager even in non-whitelisted chats
     const messageText = ctx.message && 'text' in ctx.message ? ctx.message.text : undefined;
-    if (isAdminCommand(messageText) && (ac.isSuperAdmin(userId) || ac.isManager(BigInt(userId)))) {
+    const command = getCommand(messageText);
+
+    // Allow /start and /help for everyone — they show access-aware info
+    if (isPublicCommand(command)) {
+      return next();
+    }
+
+    // Allow admin commands from superadmin/manager even in non-whitelisted chats
+    if (isAdminCommand(command) && (ac.isSuperAdmin(userId) || ac.isManager(BigInt(userId)))) {
       return next();
     }
 
