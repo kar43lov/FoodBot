@@ -4,24 +4,25 @@ import { PrismaClient } from '@prisma/client';
 export type { Project, User, Membership, MealEntry, Prisma } from '@prisma/client';
 
 // Type-safe enum-like constants for fields that are strings in SQLite
-// but enums in PostgreSQL
+// but enums in PostgreSQL.
+// Values match both dev (String) and prod (enum) Prisma schemas.
 export const ProjectType = {
-  GROUP: 'group',
-  PERSONAL: 'personal',
-} as const;
+  GROUP: 'group' as const,
+  PERSONAL: 'personal' as const,
+};
 export type ProjectType = (typeof ProjectType)[keyof typeof ProjectType];
 
 export const MembershipRole = {
-  MEMBER: 'member',
-  ADMIN: 'admin',
-} as const;
+  MEMBER: 'member' as const,
+  ADMIN: 'admin' as const,
+};
 export type MembershipRole = (typeof MembershipRole)[keyof typeof MembershipRole];
 
 export const MealEntrySource = {
-  PHOTO: 'photo',
-  MANUAL: 'manual',
-  WEB: 'web',
-} as const;
+  PHOTO: 'photo' as const,
+  MANUAL: 'manual' as const,
+  WEB: 'web' as const,
+};
 export type MealEntrySource = (typeof MealEntrySource)[keyof typeof MealEntrySource];
 
 // Singleton Prisma client instance

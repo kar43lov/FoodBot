@@ -840,7 +840,7 @@ export function registerApiRoutes(
           recordedAt: new Date(recordedAt),
           caloriesEstimated,
           description: description ?? null,
-          source: source ?? MealEntrySource.WEB,
+          source: (source ?? MealEntrySource.WEB) as typeof MealEntrySource.WEB,
         },
         include: {
           user: {
@@ -860,19 +860,21 @@ export function registerApiRoutes(
         calories: caloriesEstimated,
       });
 
+      const mealWithUser = meal as typeof meal & { user: { firstName: string; username: string | null } };
+
       return reply.status(201).send({
-        id: meal.id,
-        projectId: meal.projectId,
-        userId: meal.userId,
-        recordedAt: meal.recordedAt.toISOString(),
-        caloriesEstimated: meal.caloriesEstimated,
-        description: meal.description,
-        source: meal.source,
-        needsReview: meal.needsReview,
-        aiConfidence: meal.aiConfidence,
+        id: mealWithUser.id,
+        projectId: mealWithUser.projectId,
+        userId: mealWithUser.userId,
+        recordedAt: mealWithUser.recordedAt.toISOString(),
+        caloriesEstimated: mealWithUser.caloriesEstimated,
+        description: mealWithUser.description,
+        source: mealWithUser.source,
+        needsReview: mealWithUser.needsReview,
+        aiConfidence: mealWithUser.aiConfidence,
         user: {
-          firstName: meal.user.firstName,
-          username: meal.user.username,
+          firstName: mealWithUser.user.firstName,
+          username: mealWithUser.user.username,
         },
       });
     },
