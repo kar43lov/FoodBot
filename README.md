@@ -69,6 +69,8 @@ HOST=0.0.0.0
 | Переменная | Обязательная | Описание |
 |------------|--------------|----------|
 | BOT_TOKEN | Да | Токен Telegram бота от @BotFather |
+| BOT_NAME | Да | Username бота (без @) |
+| SUPER_ADMIN_ID | Да | Telegram user ID суперадмина |
 | WEBHOOK_URL | Нет | URL для webhook (только prod) |
 | APP_URL | Нет | URL веб-приложения (для Mini App) |
 | DATABASE_URL | Да | Строка подключения к БД |
@@ -148,16 +150,44 @@ curl -X POST "https://api.telegram.org/bot<BOT_TOKEN>/deleteWebhook"
 
 ## Команды бота
 
-| Команда | Описание |
-|---------|----------|
-| /start | Начать работу с ботом |
-| /help | Показать справку |
-| /today | Статистика калорий за сегодня |
-| /myweek | Статистика за неделю |
-| /project | Информация о текущем проекте/группе |
-| /setadmin @username | Назначить администратора |
+| Команда | Кто может | Описание |
+|---------|-----------|----------|
+| /start | все | Начать работу с ботом |
+| /help | все | Показать справку |
+| /today | все | Статистика калорий за сегодня |
+| /myweek | все | Статистика за неделю |
+| /project | все | Информация о текущем проекте/группе |
+| /setadmin @username | admin | Назначить администратора группы |
+| /allowchat | superadmin, manager | Разрешить группу (из группы или по ID) |
+| /denychat | superadmin, manager | Запретить группу |
+| /allowuser \<id/@user\> | superadmin, manager | Разрешить пользователя (личка) |
+| /denyuser \<id\> | superadmin, manager | Запретить пользователя |
+| /setmanager \<id\> | superadmin | Назначить менеджера |
+| /removemanager \<id\> | superadmin | Удалить менеджера |
+| /listallowed | superadmin, manager | Показать списки доступа |
 
 Для записи калорий просто отправьте фото еды в чат с ботом.
+
+## Контроль доступа
+
+Бот использует whitelist-систему: по умолчанию никто не может пользоваться ботом.
+
+**Роли:**
+- **Superadmin** — единственный, задаётся в `SUPER_ADMIN_ID`. Полный доступ ко всему.
+- **Manager** — назначается superadmin'ом. Может управлять whitelist'ами групп и пользователей.
+- **Обычный пользователь** — доступ только если его группа или user ID в whitelist'е.
+
+## Деплой
+
+Подробная инструкция: [docs/DEPLOY.md](docs/DEPLOY.md)
+
+```bash
+# На сервере
+./deploy.sh
+
+# Из Claude Code
+/deploy
+```
 
 ## Структура проекта
 
@@ -175,8 +205,12 @@ curl -X POST "https://api.telegram.org/bot<BOT_TOKEN>/deleteWebhook"
   /migrations
 /docker
   entrypoint.sh
+  Caddyfile
+/docs
+  DEPLOY.md
 Dockerfile
 docker-compose.yml
+deploy.sh
 ```
 
 ## API Endpoints

@@ -42,21 +42,24 @@ docker-compose up -d     # PostgreSQL + app
 
 ```
 src/
-├── index.ts          # Entry: graceful shutdown, logger init, bot+api startup
-├── config/           # Zod-validated environment config (getConfig singleton)
-├── bot/              # grammy Telegram bot
-│   ├── commands.ts   # /start, /help, /today, /myweek, /project, /setadmin
-│   └── photoHandler.ts  # Photo → AI analysis → DB save
-├── api/              # Fastify REST API
-│   ├── index.ts      # Routes, auth middleware, Swagger docs
-│   └── jwt.ts        # JWT generation/verification (secret from BOT_TOKEN)
-├── ai/               # FoodVisionService (OpenAI Vision, exponential backoff)
-├── db/               # Prisma client export
-└── web/              # React + Vite + Tailwind frontend (separate package.json)
+├── index.ts              # Entry: graceful shutdown, logger init, access control init
+├── config/               # Zod-validated environment config (getConfig singleton)
+├── bot/                  # grammy Telegram bot
+│   ├── commands.ts       # /start, /help, /today, /myweek, /project, /setadmin
+│   ├── adminCommands.ts  # /allowchat, /denychat, /allowuser, /denyuser, /setmanager, /removemanager, /listallowed
+│   ├── accessControl.ts  # AccessControl class (in-memory cache + Prisma, singleton)
+│   ├── accessGuard.ts    # grammy middleware — blocks non-whitelisted chats/users
+│   └── photoHandler.ts   # Photo → AI analysis → DB save
+├── api/                  # Fastify REST API
+│   ├── index.ts          # Routes, auth middleware, Swagger docs
+│   └── jwt.ts            # JWT generation/verification (secret from BOT_TOKEN)
+├── ai/                   # FoodVisionService (OpenAI Vision, exponential backoff)
+├── db/                   # Prisma client export
+└── web/                  # React + Vite + Tailwind frontend (separate package.json)
 
 prisma/
-├── schema.prisma      # SQLite (dev)
-└── schema.prod.prisma # PostgreSQL (prod)
+├── schema.prisma          # SQLite (dev)
+└── schema.prod.prisma     # PostgreSQL (prod)
 ```
 
 ## Key Patterns
@@ -66,6 +69,16 @@ prisma/
 - `User` — Telegram user
 - `Membership` — User ↔ Project junction with role (member/admin)
 - `MealEntry` — Food record with calories, photo, AI confidence
+- `AllowedChat` — Whitelisted group chat (telegram_chat_id)
+- `AllowedUser` — Whitelisted user for personal chat (telegram_user_id)
+- `Manager` — User who can manage whitelists (telegram_user_id)
+
+**Access Control:**
+- `SUPER_ADMIN_ID` in .env — single superadmin, bypasses all checks
+- Middleware chain: sequentialize → accessGuard → logging → commands/handlers
+- AccessControl class: in-memory Set cache, loaded from DB at startup
+- Admin commands from superadmin/manager pass through guard even in non-whitelisted chats
+- `ADMIN_COMMANDS` constant in accessGuard.ts — single source of truth for admin command names
 
 **Auth Flow:**
 1. Telegram Login Widget: validates `hash` (HMAC-SHA256 with botToken)
@@ -85,6 +98,8 @@ prisma/
 
 Required:
 - `BOT_TOKEN` — Telegram bot token
+- `BOT_NAME` — Bot username (without @)
+- `SUPER_ADMIN_ID` — Telegram user ID of superadmin
 - `OPENAI_API_KEY` — OpenAI API key
 - `DATABASE_URL` — Database connection string
 
@@ -98,6 +113,28 @@ Optional:
 - `AI_FOOD_CONFIDENCE_THRESHOLD` — default: 0.6
 - `LOG_LEVEL` — trace/debug/info/warn/error/fatal (default: info)
 - `PORT` — default: 3000
+
+## Deployment
+
+Деплой на VPS: `docs/DEPLOY.md`
+
+```bash
+# С сервера
+cd /opt/foodbot && ./deploy.sh
+
+# Из Claude Code
+/deploy              # main branch
+/deploy develop      # specific branch
+```
+
+**deploy.sh flow:** preflight checks → git pull → docker compose up --build → healthcheck → report
+
+**Структура на сервере:**
+- `/opt/foodbot/` — git repo + .env (prod-only, не в git)
+- Caddy — reverse proxy + SSL (systemd, конфиг в `/etc/caddy/Caddyfile`)
+- Docker Compose — app (Node.js) + PostgreSQL
+
+**Откат:** `git reset --hard HEAD~1 && docker compose up -d --build`
 
 ## Code Style
 

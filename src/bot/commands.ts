@@ -15,11 +15,58 @@ import { getAccessControl } from './accessControl.js';
 export async function handleStartCommand(ctx: Context): Promise<void> {
   const firstName = ctx.from?.first_name ?? 'Пользователь';
   const userId = ctx.from?.id;
+  const chatId = ctx.chat?.id;
+  const chatType = ctx.chat?.type;
   const ac = getAccessControl();
 
   const isSuperAdmin = userId !== undefined && ac.isSuperAdmin(userId);
   const isManager = userId !== undefined && ac.isManager(BigInt(userId));
 
+  // Check if user has any access
+  const hasPrivateAccess =
+    isSuperAdmin ||
+    isManager ||
+    (userId !== undefined && ac.isUserAllowed(BigInt(userId)));
+  const inAllowedGroup =
+    chatType !== 'private' && chatId !== undefined && ac.isChatAllowed(BigInt(chatId));
+  const hasAccess = hasPrivateAccess || inAllowedGroup;
+
+  // For users without access — info-only message
+  if (!hasAccess) {
+    let text =
+      `Привет, ${firstName}! 👋\n\n` +
+      `Я — CheatMealDay Bot, помогаю отслеживать калорийность еды.\n` +
+      `📸 Отправь фото еды — я оценю калорийность с помощью AI.\n\n`;
+
+    // Check if user is a member of any whitelisted group
+    const userMemberships = userId
+      ? await prisma.membership.findMany({
+          where: { user: { telegramUserId: BigInt(userId) } },
+          include: { project: true },
+        })
+      : [];
+
+    const allowedGroupMemberships = userMemberships.filter(
+      (m) => m.project.type === 'group' && ac.isChatAllowed(m.project.telegramChatId)
+    );
+
+    if (allowedGroupMemberships.length > 0) {
+      text += `📊 Ты участник групп, где бот активен:\n`;
+      for (const m of allowedGroupMemberships) {
+        text += `  • ${m.project.title}\n`;
+      }
+      text += `\nОтправляй фото еды в эти группы для отслеживания калорий.`;
+    } else {
+      text +=
+        `🔒 Сейчас у тебя нет доступа к боту.\n` +
+        `Бот работает по приглашению — обратись к администратору для получения доступа.`;
+    }
+
+    await ctx.reply(text);
+    return;
+  }
+
+  // Full message for users with access
   let text =
     `Привет, ${firstName}! 👋\n\n` +
     `Я бот для отслеживания калорийности еды.\n` +
@@ -63,10 +110,26 @@ export async function handleStartCommand(ctx: Context): Promise<void> {
  */
 export async function handleHelpCommand(ctx: Context): Promise<void> {
   const userId = ctx.from?.id;
+  const chatId = ctx.chat?.id;
+  const chatType = ctx.chat?.type;
   const ac = getAccessControl();
 
   const isSuperAdmin = userId !== undefined && ac.isSuperAdmin(userId);
   const isManager = userId !== undefined && ac.isManager(BigInt(userId));
+  const hasPrivateAccess =
+    isSuperAdmin ||
+    isManager ||
+    (userId !== undefined && ac.isUserAllowed(BigInt(userId)));
+  const inAllowedGroup =
+    chatType !== 'private' && chatId !== undefined && ac.isChatAllowed(BigInt(chatId));
+
+  if (!hasPrivateAccess && !inAllowedGroup) {
+    await ctx.reply(
+      `📖 CheatMealDay Bot — отслеживание калорийности еды.\n\n` +
+        `🔒 У тебя нет доступа. Обратись к администратору.`
+    );
+    return;
+  }
 
   let text =
     `📖 Список команд:\n\n` +

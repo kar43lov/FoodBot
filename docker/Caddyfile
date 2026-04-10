@@ -1,0 +1,25 @@
+# FoodBot reverse proxy
+# Replace {$DOMAIN} with your actual domain or set DOMAIN env var
+#
+# Install Caddy on server:
+#   apt install -y caddy
+#
+# Copy this file:
+#   cp docker/Caddyfile /etc/caddy/Caddyfile
+#   systemctl reload caddy
+
+{$DOMAIN} {
+	reverse_proxy localhost:3000
+
+	header {
+		X-Frame-Options DENY
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/foodbot.log
+		format json
+	}
+}
