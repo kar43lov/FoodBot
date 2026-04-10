@@ -1152,8 +1152,10 @@ export function registerApiRoutes(
   });
 
   // Serve web frontend (SPA)
+  // In dev: src/api/ → ../web/dist (works)
+  // In prod: dist/api/ → ../../src/web/dist (compiled output is in dist/)
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  const webDistPath = path.join(__dirname, '..', 'web', 'dist');
+  const webDistPath = path.join(__dirname, '..', '..', 'src', 'web', 'dist');
 
   void fastify.register(fastifyStatic, {
     root: webDistPath,
