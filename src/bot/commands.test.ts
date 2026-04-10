@@ -48,6 +48,8 @@ vi.mock('./accessControl.js', () => ({
   getAccessControl: vi.fn(() => ({
     isSuperAdmin: vi.fn().mockReturnValue(false),
     isManager: vi.fn().mockReturnValue(false),
+    isUserAllowed: vi.fn().mockReturnValue(true),
+    isChatAllowed: vi.fn().mockReturnValue(true),
   })),
 }));
 

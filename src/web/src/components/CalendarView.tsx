@@ -113,6 +113,23 @@ function formatWeekRange(days: DayData[]): string {
   return `${first.getDate()} ${first.toLocaleDateString('ru-RU', { month: 'short' })} - ${last.getDate()} ${last.toLocaleDateString('ru-RU', { month: 'short', year: 'numeric' })}`;
 }
 
+// Colors for different users
+const USER_COLORS = [
+  { bg: 'bg-green-100', hover: 'hover:bg-green-200', text: 'text-green-800', label: 'text-green-700', dot: 'bg-green-500' },
+  { bg: 'bg-blue-100', hover: 'hover:bg-blue-200', text: 'text-blue-800', label: 'text-blue-700', dot: 'bg-blue-500' },
+  { bg: 'bg-purple-100', hover: 'hover:bg-purple-200', text: 'text-purple-800', label: 'text-purple-700', dot: 'bg-purple-500' },
+  { bg: 'bg-orange-100', hover: 'hover:bg-orange-200', text: 'text-orange-800', label: 'text-orange-700', dot: 'bg-orange-500' },
+  { bg: 'bg-pink-100', hover: 'hover:bg-pink-200', text: 'text-pink-800', label: 'text-pink-700', dot: 'bg-pink-500' },
+  { bg: 'bg-teal-100', hover: 'hover:bg-teal-200', text: 'text-teal-800', label: 'text-teal-700', dot: 'bg-teal-500' },
+];
+
+interface UserMealsGroup {
+  user: ProjectUser;
+  meals: MealEntry[];
+  totalCalories: number;
+  colorIdx: number;
+}
+
 export default function CalendarView({ meals, users, onCellClick, onMealClick }: CalendarViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(() => new Date());
@@ -172,6 +189,95 @@ export default function CalendarView({ meals, users, onCellClick, onMealClick }:
     const cellMeals = mealsByDateAndUser.get(key) || [];
     const totalCalories = cellMeals.reduce((sum, m) => sum + m.caloriesEstimated, 0);
     return { meals: cellMeals, totalCalories };
+  };
+
+  // Build user color map (stable across renders)
+  const userColorMap = useMemo(() => {
+    const map = new Map<string, number>();
+    users.forEach((u, i) => map.set(u.userId, i % USER_COLORS.length));
+    return map;
+  }, [users]);
+
+  const isMultiUser = users.length > 1;
+
+  const getDayGroups = (dateStr: string): UserMealsGroup[] => {
+    const groups: UserMealsGroup[] = [];
+    for (const user of users) {
+      const { meals: userMeals, totalCalories } = getCellData(user.userId, dateStr);
+      if (userMeals.length > 0) {
+        groups.push({
+          user,
+          meals: [...userMeals].sort((a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()),
+          totalCalories,
+          colorIdx: userColorMap.get(user.userId) ?? 0,
+        });
+      }
+    }
+    return groups;
+  };
+
+  const getAllDayMeals = (dateStr: string): MealEntry[] => {
+    const all: MealEntry[] = [];
+    for (const user of users) {
+      const { meals: userMeals } = getCellData(user.userId, dateStr);
+      all.push(...userMeals);
+    }
+    return all;
+  };
+
+  const renderCellContent = (dateStr: string) => {
+    const groups = getDayGroups(dateStr);
+    if (groups.length === 0) return null;
+
+    return (
+      <div className="space-y-1">
+        {groups.map(({ user, meals: userMeals, totalCalories, colorIdx }) => {
+          const color = USER_COLORS[colorIdx];
+          return (
+            <div key={user.userId}>
+              {/* User label (only if multiple users) */}
+              {isMultiUser && (
+                <div className="flex items-center gap-1 mb-0.5">
+                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${color.dot}`} />
+                  <span className={`text-[9px] sm:text-[10px] font-medium ${color.label} truncate`}>
+                    {user.firstName}
+                  </span>
+                  <span className={`text-[9px] sm:text-[10px] ${color.label} ml-auto flex-shrink-0`}>
+                    {totalCalories}
+                  </span>
+                </div>
+              )}
+              {/* Meal strips */}
+              <div className="space-y-0.5">
+                {userMeals.map((meal) => {
+                  const shortDesc = meal.description
+                    ? meal.description.length > 15
+                      ? meal.description.slice(0, 15) + '...'
+                      : meal.description
+                    : '';
+                  return (
+                    <div
+                      key={meal.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMealClick?.(meal);
+                      }}
+                      className={`text-[10px] sm:text-xs px-1 sm:px-1.5 py-0.5 rounded ${color.bg} ${color.text} truncate ${color.hover} transition-colors cursor-pointer`}
+                      title={`${meal.caloriesEstimated} ккал${meal.description ? ' — ' + meal.description : ''}`}
+                    >
+                      <span className="font-medium">{meal.caloriesEstimated}</span>
+                      {shortDesc && (
+                        <span className={`ml-1 hidden sm:inline opacity-75`}>({shortDesc})</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   return (
@@ -260,14 +366,8 @@ export default function CalendarView({ meals, users, onCellClick, onMealClick }:
             <div className="border border-gray-200 rounded-lg overflow-hidden">
               <div className="grid grid-cols-7">
                 {days.map((day, dayIdx) => {
-                  const dayCellMeals: MealEntry[] = [];
-                  for (const user of users) {
-                    const { meals: userMeals } = getCellData(user.userId, day.dateStr);
-                    dayCellMeals.push(...userMeals);
-                  }
-                  const sortedCellMeals = [...dayCellMeals].sort(
-                    (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
-                  );
+                  const dayCellMeals = getAllDayMeals(day.dateStr);
+                  const content = renderCellContent(day.dateStr);
 
                   return (
                     <div
@@ -280,33 +380,7 @@ export default function CalendarView({ meals, users, onCellClick, onMealClick }:
                         dayIdx > 0 ? 'border-l border-gray-200' : ''
                       } ${day.isToday ? 'bg-blue-50' : 'bg-white'} hover:bg-gray-50`}
                     >
-                      {sortedCellMeals.length > 0 ? (
-                        <div className="space-y-0.5">
-                          {sortedCellMeals.map((meal) => {
-                            const shortDesc = meal.description
-                              ? meal.description.length > 15
-                                ? meal.description.slice(0, 15) + '...'
-                                : meal.description
-                              : '';
-                            return (
-                              <div
-                                key={meal.id}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onMealClick?.(meal);
-                                }}
-                                className="text-[10px] sm:text-xs px-1 sm:px-1.5 py-0.5 rounded bg-green-100 text-green-800 truncate hover:bg-green-200 transition-colors cursor-pointer"
-                                title={`${meal.caloriesEstimated} ккал${meal.description ? ' — ' + meal.description : ''}`}
-                              >
-                                <span className="font-medium">{meal.caloriesEstimated}</span>
-                                {shortDesc && (
-                                  <span className="text-green-600 ml-1 hidden sm:inline">({shortDesc})</span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
+                      {content || (
                         <div className="text-gray-300 text-xs sm:text-sm text-center mt-4 sm:mt-6">—</div>
                       )}
                     </div>
@@ -336,15 +410,8 @@ export default function CalendarView({ meals, users, onCellClick, onMealClick }:
                 return (
                   <div key={weekIdx} className={`grid grid-cols-7 ${weekIdx > 0 ? 'border-t border-gray-200' : ''}`}>
                     {weekDays.map((day, dayIdx) => {
-                      // Aggregate all users' meals for this day
-                      const dayCellMeals: MealEntry[] = [];
-                      for (const user of users) {
-                        const { meals: userMeals } = getCellData(user.userId, day.dateStr);
-                        dayCellMeals.push(...userMeals);
-                      }
-                      const sortedCellMeals = [...dayCellMeals].sort(
-                        (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
-                      );
+                      const dayCellMeals = getAllDayMeals(day.dateStr);
+                      const content = renderCellContent(day.dateStr);
 
                       return (
                         <div
@@ -366,33 +433,7 @@ export default function CalendarView({ meals, users, onCellClick, onMealClick }:
                           }`}>
                             {formatDayNumber(day.date)}
                           </div>
-                          {sortedCellMeals.length > 0 && (
-                            <div className="space-y-0.5">
-                              {sortedCellMeals.map((meal) => {
-                                const shortDesc = meal.description
-                                  ? meal.description.length > 15
-                                    ? meal.description.slice(0, 15) + '...'
-                                    : meal.description
-                                  : '';
-                                return (
-                                  <div
-                                    key={meal.id}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onMealClick?.(meal);
-                                    }}
-                                    className="text-[10px] sm:text-xs px-1 sm:px-1.5 py-0.5 rounded bg-green-100 text-green-800 truncate hover:bg-green-200 transition-colors cursor-pointer"
-                                    title={`${meal.caloriesEstimated} ккал${meal.description ? ' — ' + meal.description : ''}`}
-                                  >
-                                    <span className="font-medium">{meal.caloriesEstimated}</span>
-                                    {shortDesc && (
-                                      <span className="text-green-600 ml-1 hidden sm:inline">({shortDesc})</span>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
+                          {content}
                         </div>
                       );
                     })}
@@ -423,11 +464,23 @@ export default function CalendarView({ meals, users, onCellClick, onMealClick }:
       </div>
 
       {/* Legend */}
-      <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-4 text-xs text-gray-500">
-        <div className="flex items-center gap-1">
-          <div className="w-4 h-4 bg-green-100 rounded"></div>
-          <span>Есть записи</span>
-        </div>
+      <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+        {isMultiUser ? (
+          users.map((user, i) => {
+            const color = USER_COLORS[i % USER_COLORS.length];
+            return (
+              <div key={user.userId} className="flex items-center gap-1">
+                <div className={`w-2.5 h-2.5 rounded-full ${color.dot}`}></div>
+                <span>{user.firstName}</span>
+              </div>
+            );
+          })
+        ) : (
+          <div className="flex items-center gap-1">
+            <div className="w-4 h-4 bg-green-100 rounded"></div>
+            <span>Есть записи</span>
+          </div>
+        )}
         <div className="flex items-center gap-1">
           <div className="w-4 h-4 bg-blue-50 rounded border border-blue-200"></div>
           <span>Сегодня</span>
