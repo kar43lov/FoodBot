@@ -16,6 +16,27 @@ function isSuperAdmin(ctx: Context): boolean {
   return getAccessControl().isSuperAdmin(userId);
 }
 
+async function resolveUserId(
+  arg: string,
+  ctx: Context
+): Promise<bigint | null> {
+  if (arg.startsWith('@')) {
+    const username = arg.slice(1);
+    const user = await prisma.user.findFirst({ where: { username } });
+    if (!user) {
+      await ctx.reply(`❌ Пользователь @${username} не найден в БД. Используйте числовой ID.`);
+      return null;
+    }
+    return user.telegramUserId;
+  }
+  try {
+    return BigInt(arg);
+  } catch {
+    await ctx.reply('❌ Неверный формат. Укажите числовой ID или @username.');
+    return null;
+  }
+}
+
 function parseArg(ctx: Context): string | undefined {
   const text = ctx.message && 'text' in ctx.message ? ctx.message.text : undefined;
   if (!text) return undefined;
@@ -113,19 +134,8 @@ export async function handleAllowUserCommand(ctx: Context): Promise<void> {
     return;
   }
 
-  let targetUserId: bigint;
-
-  if (arg.startsWith('@')) {
-    const username = arg.slice(1);
-    const user = await prisma.user.findFirst({ where: { username } });
-    if (!user) {
-      await ctx.reply(`❌ Пользователь @${username} не найден в БД. Используйте числовой ID.`);
-      return;
-    }
-    targetUserId = user.telegramUserId;
-  } else {
-    targetUserId = BigInt(arg);
-  }
+  const targetUserId = await resolveUserId(arg, ctx);
+  if (targetUserId === null) return;
 
   if (ac.isUserAllowed(targetUserId)) {
     await ctx.reply('ℹ️ Пользователь уже в списке разрешённых.');
@@ -146,11 +156,12 @@ export async function handleDenyUserCommand(ctx: Context): Promise<void> {
   const arg = parseArg(ctx);
 
   if (!arg) {
-    await ctx.reply('❓ Использование: /denyuser <user_id>');
+    await ctx.reply('❓ Использование: /denyuser <user_id> или /denyuser @username');
     return;
   }
 
-  const targetUserId = BigInt(arg);
+  const targetUserId = await resolveUserId(arg, ctx);
+  if (targetUserId === null) return;
 
   if (!ac.isUserAllowed(targetUserId)) {
     await ctx.reply('ℹ️ Пользователь не найден в списке разрешённых.');
@@ -171,11 +182,12 @@ export async function handleSetManagerCommand(ctx: Context): Promise<void> {
   const arg = parseArg(ctx);
 
   if (!arg) {
-    await ctx.reply('❓ Использование: /setmanager <user_id>');
+    await ctx.reply('❓ Использование: /setmanager <user_id> или /setmanager @username');
     return;
   }
 
-  const targetUserId = BigInt(arg);
+  const targetUserId = await resolveUserId(arg, ctx);
+  if (targetUserId === null) return;
 
   if (ac.isManager(targetUserId)) {
     await ctx.reply('ℹ️ Пользователь уже является менеджером.');
@@ -196,11 +208,12 @@ export async function handleRemoveManagerCommand(ctx: Context): Promise<void> {
   const arg = parseArg(ctx);
 
   if (!arg) {
-    await ctx.reply('❓ Использование: /removemanager <user_id>');
+    await ctx.reply('❓ Использование: /removemanager <user_id> или /removemanager @username');
     return;
   }
 
-  const targetUserId = BigInt(arg);
+  const targetUserId = await resolveUserId(arg, ctx);
+  if (targetUserId === null) return;
 
   if (!ac.isManager(targetUserId)) {
     await ctx.reply('ℹ️ Пользователь не является менеджером.');
