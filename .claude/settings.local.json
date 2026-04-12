@@ -22,7 +22,13 @@
       "Bash(gh pr:*)",
       "Bash(git:*)",
       "Skill(planning:make)",
-      "Bash(ssh karvpn:*)"
+      "Bash(ssh karvpn:*)",
+      "Bash(ls src/web/.env*)",
+      "Bash(VITE_API_URL=\"\" npx vite build)",
+      "Bash(grep \"VITE_API_URL\" dist/assets/*.js)",
+      "Bash(grep -o 'VITE_API_URL[^,]*\\\\|API_BASE[^,;]*\\\\|\"/api\"' dist/assets/*.js)",
+      "Bash(grep -o '\"/api\"\\\\|/api/' dist/assets/*.js)",
+      "Bash(ssh:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
