@@ -394,22 +394,39 @@ export default function MealFormModal({
                 </div>
               )}
 
-              {/* Date/Time */}
+              {/* Date/Time as two separate inputs */}
               <div>
-                <label htmlFor="recordedAt" className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Дата и время
                 </label>
-                <input
-                  type="datetime-local"
-                  id="recordedAt"
-                  value={formData.recordedAt}
-                  onChange={(e) => handleInputChange('recordedAt', e.target.value)}
-                  disabled={isSubmitting}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-telegram-blue focus:border-transparent text-gray-900 bg-white text-sm max-w-full ${
-                    errors.recordedAt ? 'border-red-300' : 'border-gray-300'
-                  }`}
-                  style={{ colorScheme: 'light', fontSize: '14px' }}
-                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    value={formData.recordedAt.split('T')[0] ?? ''}
+                    onChange={(e) => {
+                      const time = formData.recordedAt.split('T')[1] ?? '12:00';
+                      handleInputChange('recordedAt', `${e.target.value}T${time}`);
+                    }}
+                    disabled={isSubmitting}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-telegram-blue focus:border-transparent text-gray-900 bg-white text-sm ${
+                      errors.recordedAt ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                    style={{ colorScheme: 'light' }}
+                  />
+                  <input
+                    type="time"
+                    value={formData.recordedAt.split('T')[1] ?? '12:00'}
+                    onChange={(e) => {
+                      const date = formData.recordedAt.split('T')[0] ?? '';
+                      handleInputChange('recordedAt', `${date}T${e.target.value}`);
+                    }}
+                    disabled={isSubmitting}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-telegram-blue focus:border-transparent text-gray-900 bg-white text-sm ${
+                      errors.recordedAt ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                    style={{ colorScheme: 'light' }}
+                  />
+                </div>
                 {errors.recordedAt && (
                   <p className="mt-1 text-sm text-red-600">{errors.recordedAt}</p>
                 )}
