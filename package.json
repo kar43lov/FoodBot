@@ -51,6 +51,7 @@
     "fastify": "^4.27.0",
     "grammy": "^1.23.0",
     "jsonwebtoken": "^9.0.3",
+    "node-cron": "^4.2.1",
     "openai": "^4.47.0",
     "pino": "^9.1.0",
     "zod": "^3.23.8"
@@ -58,6 +59,7 @@
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.12.12",
+    "@types/node-cron": "^3.0.11",
     "@typescript-eslint/eslint-plugin": "^7.10.0",
     "@typescript-eslint/parser": "^7.10.0",
     "eslint": "^8.57.0",

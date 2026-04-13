@@ -5,6 +5,7 @@ import { createBot, startBot } from './bot/index.js';
 import { startApiServer } from './api/index.js';
 import { prisma } from './db/index.js';
 import { getAccessControl } from './bot/accessControl.js';
+import { startScheduler } from './bot/scheduler.js';
 
 /**
  * Food Calories Bot - Entry Point
@@ -68,6 +69,9 @@ async function main(): Promise<void> {
   }
   // Note: In production mode, API routes are registered on the webhook server
   // via createWebhookServer() in bot/index.ts
+
+  // Start scheduled messages (daily 21:00, weekly Sun 20:00)
+  startScheduler(bot, logger);
 
   logger.info({
     event: 'app_started',

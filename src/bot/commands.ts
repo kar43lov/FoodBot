@@ -164,7 +164,7 @@ export async function handleHelpCommand(ctx: Context): Promise<void> {
 /**
  * Gets the start of today in the configured timezone.
  */
-function getTodayStart(): Date {
+export function getTodayStart(): Date {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
 }
@@ -172,7 +172,7 @@ function getTodayStart(): Date {
 /**
  * Gets the start of the week (Monday) in the configured timezone.
  */
-function getWeekStart(): Date {
+export function getWeekStart(): Date {
   const now = new Date();
   const dayOfWeek = now.getDay();
   // Convert to Monday-based week (0 = Monday, 6 = Sunday)
@@ -190,8 +190,174 @@ function getWeekStart(): Date {
 }
 
 /**
+ * Shortens a food description to ~40 chars.
+ */
+function shortDesc(desc: string | null): string {
+  if (!desc) return 'Без описания';
+  return desc.length > 40 ? desc.slice(0, 37) + '...' : desc;
+}
+
+function getTodayTip(totalCalories: number): string {
+  if (totalCalories === 0) return '';
+  if (totalCalories < 1200)
+    return '💡 Маловато калорий — не забывай про полноценные приёмы пищи.';
+  if (totalCalories > 2500)
+    return '💡 Калораж выше среднего — попробуй сбалансировать ужин.';
+  return '💡 Хороший баланс — так держать!';
+}
+
+function getWeekTip(avgCalories: number, daysTracked: number, totalDays: number): string {
+  const parts: string[] = [];
+  if (daysTracked < totalDays)
+    parts.push(
+      `Записи есть только за ${daysTracked} из ${totalDays} дней — старайся фиксировать каждый день.`
+    );
+  if (avgCalories < 1200) parts.push('Средний калораж низковат — следи за питанием.');
+  else if (avgCalories > 2500)
+    parts.push('Средний калораж высоковат — обрати внимание на порции.');
+  else parts.push('Средний калораж в норме — отличная работа!');
+  return '💡 ' + parts.join(' ');
+}
+
+/**
+ * Build today summary text for a project (all users). Used by /today in groups and scheduler.
+ */
+export async function buildTodaySummary(projectId: string): Promise<string | null> {
+  const todayStart = getTodayStart();
+
+  const entries = await prisma.mealEntry.findMany({
+    where: { projectId, recordedAt: { gte: todayStart } },
+    include: { user: true },
+    orderBy: { recordedAt: 'asc' },
+  });
+
+  if (entries.length === 0) return null;
+
+  // Group by user
+  const byUser = new Map<
+    string,
+    { name: string; entries: typeof entries; total: number }
+  >();
+  for (const e of entries) {
+    const key = e.userId;
+    const existing = byUser.get(key);
+    if (existing) {
+      existing.entries.push(e);
+      existing.total += e.caloriesEstimated;
+    } else {
+      const name = e.user.username ? `@${e.user.username}` : e.user.firstName;
+      byUser.set(key, { name, entries: [e], total: e.caloriesEstimated });
+    }
+  }
+
+  const grandTotal = entries.reduce((s, e) => s + e.caloriesEstimated, 0);
+  const lines: string[] = ['📊 Статистика за сегодня:\n'];
+
+  for (const u of byUser.values()) {
+    lines.push(`👤 ${u.name} — ${u.total} ккал`);
+    for (const e of u.entries) {
+      const time = e.recordedAt.toLocaleTimeString('ru-RU', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      lines.push(`  • ${time} — ${shortDesc(e.description)} (${e.caloriesEstimated})`);
+    }
+    lines.push('');
+  }
+
+  lines.push(`━━━━━━━━━━━━━━━`);
+  lines.push(`📈 Всего: ${grandTotal} ккал`);
+
+  const tip = getTodayTip(grandTotal);
+  if (tip) lines.push(`\n${tip}`);
+
+  return lines.join('\n');
+}
+
+/**
+ * Build week summary text for a project (all users). Used by /myweek in groups and scheduler.
+ */
+export async function buildWeekSummary(projectId: string): Promise<string | null> {
+  const weekStart = getWeekStart();
+
+  const entries = await prisma.mealEntry.findMany({
+    where: { projectId, recordedAt: { gte: weekStart } },
+    include: { user: true },
+    orderBy: { recordedAt: 'asc' },
+  });
+
+  if (entries.length === 0) return null;
+
+  const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+
+  // Group by user -> by day
+  const byUser = new Map<
+    string,
+    {
+      name: string;
+      byDay: Map<string, { dayName: string; calories: number; meals: string[] }>;
+    }
+  >();
+
+  for (const e of entries) {
+    const key = e.userId;
+    if (!byUser.has(key)) {
+      const name = e.user.username ? `@${e.user.username}` : e.user.firstName;
+      byUser.set(key, { name, byDay: new Map() });
+    }
+    const user = byUser.get(key)!;
+    const d = e.recordedAt;
+    const dateKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    const dayName = dayNames[d.getDay()] ?? 'Н/Д';
+
+    if (!user.byDay.has(dateKey)) {
+      user.byDay.set(dateKey, { dayName, calories: 0, meals: [] });
+    }
+    const day = user.byDay.get(dateKey)!;
+    day.calories += e.caloriesEstimated;
+    day.meals.push(shortDesc(e.description));
+  }
+
+  const grandTotal = entries.reduce((s, e) => s + e.caloriesEstimated, 0);
+  const allDays = new Set<string>();
+  for (const e of entries) {
+    const d = e.recordedAt;
+    allDays.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
+  }
+
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const totalDaysSoFar = dayOfWeek === 0 ? 7 : dayOfWeek;
+
+  const lines: string[] = ['📊 Статистика за неделю:\n'];
+
+  for (const u of byUser.values()) {
+    const userTotal = Array.from(u.byDay.values()).reduce((s, d) => s + d.calories, 0);
+    const userAvg = Math.round(userTotal / u.byDay.size);
+    lines.push(`👤 ${u.name} — ${userTotal} ккал (ср. ${userAvg}/день)`);
+    for (const day of u.byDay.values()) {
+      const mealsStr = day.meals.join(', ');
+      lines.push(`  ${day.dayName}: ${day.calories} ккал — ${mealsStr}`);
+    }
+    lines.push('');
+  }
+
+  const avgCalories = Math.round(grandTotal / allDays.size);
+
+  lines.push(`━━━━━━━━━━━━━━━`);
+  lines.push(`📈 Всего: ${grandTotal} ккал`);
+  lines.push(`📉 Среднее в день: ${avgCalories} ккал`);
+  lines.push(`📝 Записей: ${entries.length}`);
+
+  const tip = getWeekTip(avgCalories, allDays.size, totalDaysSoFar);
+  lines.push(`\n${tip}`);
+
+  return lines.join('\n');
+}
+
+/**
  * /today command handler.
- * Shows calorie statistics for today.
+ * In groups: shows all members. In private: shows current user only.
  */
 export async function handleTodayCommand(ctx: Context): Promise<void> {
   const chatId = ctx.chat?.id;
@@ -202,7 +368,6 @@ export async function handleTodayCommand(ctx: Context): Promise<void> {
     return;
   }
 
-  // Find project by chat ID
   const project = await prisma.project.findUnique({
     where: { telegramChatId: BigInt(chatId) },
   });
@@ -212,7 +377,15 @@ export async function handleTodayCommand(ctx: Context): Promise<void> {
     return;
   }
 
-  // Find user
+  const isGroup = ctx.chat?.type !== 'private';
+
+  if (isGroup) {
+    const text = await buildTodaySummary(project.id);
+    await ctx.reply(text ?? '📭 Сегодня записей нет. Отправьте фото еды!');
+    return;
+  }
+
+  // Private chat — show only current user
   const user = await prisma.user.findUnique({
     where: { telegramUserId: BigInt(userId) },
   });
@@ -223,16 +396,8 @@ export async function handleTodayCommand(ctx: Context): Promise<void> {
   }
 
   const todayStart = getTodayStart();
-
-  // Get today's entries for this user in this project
   const entries = await prisma.mealEntry.findMany({
-    where: {
-      projectId: project.id,
-      userId: user.id,
-      recordedAt: {
-        gte: todayStart,
-      },
-    },
+    where: { projectId: project.id, userId: user.id, recordedAt: { gte: todayStart } },
     orderBy: { recordedAt: 'asc' },
   });
 
@@ -241,32 +406,30 @@ export async function handleTodayCommand(ctx: Context): Promise<void> {
     return;
   }
 
-  // Calculate total
   const totalCalories = entries.reduce((sum, entry) => sum + entry.caloriesEstimated, 0);
-
-  // Format entries list
   const entriesList = entries
     .map((entry, index) => {
       const time = entry.recordedAt.toLocaleTimeString('ru-RU', {
         hour: '2-digit',
         minute: '2-digit',
       });
-      const desc = entry.description ? ` (${entry.description})` : '';
-      return `${index + 1}. ${time} — ${entry.caloriesEstimated} ккал${desc}`;
+      return `${index + 1}. ${time} — ${shortDesc(entry.description)} (${entry.caloriesEstimated} ккал)`;
     })
     .join('\n');
 
+  const tip = getTodayTip(totalCalories);
   await ctx.reply(
     `📊 Статистика за сегодня:\n\n` +
       `${entriesList}\n\n` +
-      `━━━━━━━━━━━━━━━\n` +
-      `📈 Всего: ${totalCalories} ккал`
+      `━━━━━━━━━━���━━━━\n` +
+      `📈 Всего: ${totalCalories} ккал` +
+      (tip ? `\n\n${tip}` : '')
   );
 }
 
 /**
  * /myweek command handler.
- * Shows calorie statistics for the current week.
+ * In groups: shows all members. In private: shows current user only.
  */
 export async function handleMyWeekCommand(ctx: Context): Promise<void> {
   const chatId = ctx.chat?.id;
@@ -277,7 +440,6 @@ export async function handleMyWeekCommand(ctx: Context): Promise<void> {
     return;
   }
 
-  // Find project by chat ID
   const project = await prisma.project.findUnique({
     where: { telegramChatId: BigInt(chatId) },
   });
@@ -287,7 +449,15 @@ export async function handleMyWeekCommand(ctx: Context): Promise<void> {
     return;
   }
 
-  // Find user
+  const isGroup = ctx.chat?.type !== 'private';
+
+  if (isGroup) {
+    const text = await buildWeekSummary(project.id);
+    await ctx.reply(text ?? '📭 На этой неделе записей нет. Отправьте фото еды!');
+    return;
+  }
+
+  // Private chat — show only current user
   const user = await prisma.user.findUnique({
     where: { telegramUserId: BigInt(userId) },
   });
@@ -298,16 +468,8 @@ export async function handleMyWeekCommand(ctx: Context): Promise<void> {
   }
 
   const weekStart = getWeekStart();
-
-  // Get week's entries for this user in this project
   const entries = await prisma.mealEntry.findMany({
-    where: {
-      projectId: project.id,
-      userId: user.id,
-      recordedAt: {
-        gte: weekStart,
-      },
-    },
+    where: { projectId: project.id, userId: user.id, recordedAt: { gte: weekStart } },
     orderBy: { recordedAt: 'asc' },
   });
 
@@ -338,15 +500,18 @@ export async function handleMyWeekCommand(ctx: Context): Promise<void> {
     }
   }
 
-  // Calculate total and average
   const totalCalories = entries.reduce((sum, entry) => sum + entry.caloriesEstimated, 0);
   const daysWithEntries = byDay.size;
   const avgCalories = Math.round(totalCalories / daysWithEntries);
 
-  // Format daily summary
   const dailySummary = Array.from(byDay.entries())
     .map(([, data]) => `${data.dayName}: ${data.calories} ккал (${data.count} записей)`)
     .join('\n');
+
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const totalDaysSoFar = dayOfWeek === 0 ? 7 : dayOfWeek;
+  const tip = getWeekTip(avgCalories, daysWithEntries, totalDaysSoFar);
 
   await ctx.reply(
     `📊 Статистика за неделю:\n\n` +
@@ -354,7 +519,8 @@ export async function handleMyWeekCommand(ctx: Context): Promise<void> {
       `━━━━━━━━━━━━━━━\n` +
       `📈 Всего: ${totalCalories} ккал\n` +
       `📉 Среднее в день: ${avgCalories} ккал\n` +
-      `📝 Всего записей: ${entries.length}`
+      `📝 Всего записей: ${entries.length}` +
+      `\n\n${tip}`
   );
 }
 
