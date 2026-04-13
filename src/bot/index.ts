@@ -58,6 +58,8 @@ export function createBot(config: Config, logger: pino.Logger): Bot<BotContext> 
       chatId,
       userId,
       username,
+      hasPhoto: Boolean(ctx.message?.photo),
+      hasDocument: Boolean(ctx.message?.document),
     });
 
     try {
@@ -92,6 +94,11 @@ export function createBot(config: Config, logger: pino.Logger): Bot<BotContext> 
 
   // Photo handler - process food images
   bot.on('message:photo', async (ctx) => {
+    logger.info({
+      event: 'photo_handler_triggered',
+      chatId: ctx.chat?.id,
+      userId: ctx.from?.id,
+    });
     await handlePhoto(ctx, logger);
   });
 
