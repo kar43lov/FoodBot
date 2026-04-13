@@ -405,10 +405,10 @@ export default function MealFormModal({
                   value={formData.recordedAt}
                   onChange={(e) => handleInputChange('recordedAt', e.target.value)}
                   disabled={isSubmitting}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-telegram-blue focus:border-transparent text-gray-900 bg-white ${
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-telegram-blue focus:border-transparent text-gray-900 bg-white text-sm max-w-full ${
                     errors.recordedAt ? 'border-red-300' : 'border-gray-300'
                   }`}
-                  style={{ colorScheme: 'light' }}
+                  style={{ colorScheme: 'light', fontSize: '14px' }}
                 />
                 {errors.recordedAt && (
                   <p className="mt-1 text-sm text-red-600">{errors.recordedAt}</p>
