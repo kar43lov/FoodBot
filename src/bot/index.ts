@@ -94,11 +94,6 @@ export function createBot(config: Config, logger: pino.Logger): Bot<BotContext> 
 
   // Photo handler - process food images
   bot.on('message:photo', async (ctx) => {
-    logger.info({
-      event: 'photo_handler_triggered',
-      chatId: ctx.chat?.id,
-      userId: ctx.from?.id,
-    });
     await handlePhoto(ctx, logger);
   });
 
