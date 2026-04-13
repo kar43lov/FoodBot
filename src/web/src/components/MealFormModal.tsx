@@ -375,7 +375,7 @@ export default function MealFormModal({
 
           {/* Form (manual or after successful photo analysis) */}
           {showForm && (
-            <form key={initialData?.id ?? 'new'} onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
+            <form key={initialData?.id ?? 'new'} onSubmit={handleSubmit} className="px-4 py-4 space-y-4 overflow-hidden">
               {/* Photo preview with AI result */}
               {inputMode === 'photo' && photoPreview && analysisResult && (
                 <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
@@ -408,7 +408,7 @@ export default function MealFormModal({
                       handleInputChange('recordedAt', `${e.target.value}T${time}`);
                     }}
                     disabled={isSubmitting}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-telegram-blue focus:border-transparent text-gray-900 bg-white text-sm ${
+                    className={`w-full min-w-0 px-2 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-telegram-blue focus:border-transparent text-gray-900 bg-white text-sm ${
                       errors.recordedAt ? 'border-red-300' : 'border-gray-300'
                     }`}
                     style={{ colorScheme: 'light' }}
@@ -421,7 +421,7 @@ export default function MealFormModal({
                       handleInputChange('recordedAt', `${date}T${e.target.value}`);
                     }}
                     disabled={isSubmitting}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-telegram-blue focus:border-transparent text-gray-900 bg-white text-sm ${
+                    className={`w-full min-w-0 px-2 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-telegram-blue focus:border-transparent text-gray-900 bg-white text-sm ${
                       errors.recordedAt ? 'border-red-300' : 'border-gray-300'
                     }`}
                     style={{ colorScheme: 'light' }}
