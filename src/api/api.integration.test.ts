@@ -44,6 +44,9 @@ const mockMealEntry = {
   photoFileId: 'photo123',
   aiConfidence: 0.9,
   needsReview: false,
+  protein: null,
+  fat: null,
+  carbs: null,
   createdAt: new Date('2024-01-15T12:00:00Z'),
   updatedAt: new Date('2024-01-15T12:00:00Z'),
 };

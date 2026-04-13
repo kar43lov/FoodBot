@@ -62,6 +62,9 @@ describe('FoodVisionService', () => {
           food_confidence: 0.95,
           estimated_calories: 450,
           description: 'Куриная грудка с овощами',
+          protein_g: 35,
+          fat_g: 12,
+          carbs_g: 40,
         })
       );
 
@@ -73,6 +76,9 @@ describe('FoodVisionService', () => {
         food_confidence: 0.95,
         estimated_calories: 450,
         description: 'Куриная грудка с овощами',
+        protein_g: 35,
+        fat_g: 12,
+        carbs_g: 40,
       });
       expect(mockCreateFn).toHaveBeenCalledTimes(1);
     });
@@ -84,6 +90,9 @@ describe('FoodVisionService', () => {
           food_confidence: 0.1,
           estimated_calories: null,
           description: null,
+          protein_g: null,
+          fat_g: null,
+          carbs_g: null,
         })
       );
 
@@ -95,6 +104,9 @@ describe('FoodVisionService', () => {
         food_confidence: 0.1,
         estimated_calories: null,
         description: null,
+        protein_g: null,
+        fat_g: null,
+        carbs_g: null,
       });
     });
 
@@ -106,6 +118,9 @@ describe('FoodVisionService', () => {
           food_confidence: 0.4, // Below threshold
           estimated_calories: 200,
           description: 'Possibly food',
+          protein_g: 10,
+          fat_g: 8,
+          carbs_g: 20,
         })
       );
 
@@ -118,6 +133,9 @@ describe('FoodVisionService', () => {
         food_confidence: 0.4,
         estimated_calories: null,
         description: null,
+        protein_g: null,
+        fat_g: null,
+        carbs_g: null,
       });
     });
 
@@ -128,6 +146,9 @@ describe('FoodVisionService', () => {
           food_confidence: 0.9,
           estimated_calories: 5, // Below minimum
           description: 'Very small snack',
+          protein_g: 1,
+          fat_g: 0,
+          carbs_g: 1,
         })
       );
 
@@ -144,6 +165,9 @@ describe('FoodVisionService', () => {
           food_confidence: 0.9,
           estimated_calories: 15000, // Above maximum
           description: 'Huge feast',
+          protein_g: 200,
+          fat_g: 300,
+          carbs_g: 500,
         })
       );
 
@@ -160,6 +184,9 @@ describe('FoodVisionService', () => {
           food_confidence: 0.9,
           estimated_calories: 456.7,
           description: 'Lunch',
+          protein_g: 25,
+          fat_g: 15,
+          carbs_g: 55,
         })
       );
 
@@ -180,6 +207,9 @@ describe('FoodVisionService', () => {
             food_confidence: 0.85,
             estimated_calories: 300,
             description: 'Salad',
+            protein_g: 15,
+            fat_g: 10,
+            carbs_g: 30,
           })
         );
 
@@ -191,6 +221,9 @@ describe('FoodVisionService', () => {
         food_confidence: 0.85,
         estimated_calories: 300,
         description: 'Salad',
+        protein_g: 15,
+        fat_g: 10,
+        carbs_g: 30,
       });
       expect(mockCreateFn).toHaveBeenCalledTimes(3);
     }, 15000); // Increase timeout due to retry delays
@@ -211,6 +244,9 @@ describe('FoodVisionService', () => {
         food_confidence: 0,
         estimated_calories: null,
         description: null,
+        protein_g: null,
+        fat_g: null,
+        carbs_g: null,
       });
       expect(mockCreateFn).toHaveBeenCalledTimes(3);
     }, 15000);
@@ -267,6 +303,9 @@ describe('FoodVisionService', () => {
           food_confidence: 0,
           estimated_calories: null,
           description: null,
+          protein_g: null,
+          fat_g: null,
+          carbs_g: null,
         })
       );
 
@@ -293,6 +332,9 @@ describe('FoodVisionService', () => {
         food_confidence: 0.9,
         estimated_calories: 500,
         description: 'Test food',
+        protein_g: 25,
+        fat_g: 15,
+        carbs_g: 55,
       };
 
       expect(result).toHaveProperty('is_food');
@@ -307,6 +349,9 @@ describe('FoodVisionService', () => {
         food_confidence: 0.1,
         estimated_calories: null,
         description: null,
+        protein_g: null,
+        fat_g: null,
+        carbs_g: null,
       };
 
       expect(result.estimated_calories).toBeNull();

@@ -46,6 +46,10 @@ export default function MealDetailsModal({
   if (!isOpen) return null;
 
   const totalCalories = meals.reduce((sum, m) => sum + m.caloriesEstimated, 0);
+  const totalProtein = Math.round(meals.reduce((sum, m) => sum + (m.protein ?? 0), 0));
+  const totalFat = Math.round(meals.reduce((sum, m) => sum + (m.fat ?? 0), 0));
+  const totalCarbs = Math.round(meals.reduce((sum, m) => sum + (m.carbs ?? 0), 0));
+  const hasMacros = totalProtein > 0 || totalFat > 0 || totalCarbs > 0;
   const sortedMeals = [...meals].sort(
     (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
   );
@@ -136,6 +140,11 @@ export default function MealDetailsModal({
                               </span>
                             )}
                           </div>
+                          {(meal.protein != null || meal.fat != null || meal.carbs != null) && (
+                            <p className="text-sm text-gray-500">
+                              Б: {Math.round(meal.protein ?? 0)}г · Ж: {Math.round(meal.fat ?? 0)}г · У: {Math.round(meal.carbs ?? 0)}г
+                            </p>
+                          )}
                           {meal.description && (
                             <p className="text-gray-600 text-sm mt-1">{meal.description}</p>
                           )}
@@ -202,6 +211,11 @@ export default function MealDetailsModal({
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-bold text-gray-900">{totalCalories} ккал</p>
+                  {hasMacros && (
+                    <p className="text-sm text-gray-500">
+                      Б: {totalProtein}г · Ж: {totalFat}г · У: {totalCarbs}г
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
