@@ -198,7 +198,7 @@ export default function MealFormModal({
         onClick={onClose}
       ></div>
 
-      <div className="flex min-h-full items-center justify-center p-4">
+      <div className="flex min-h-full items-center justify-center p-2 sm:p-4">
         <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full">
           {/* Header */}
           <div className="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
@@ -399,33 +399,33 @@ export default function MealFormModal({
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Дата и время
                 </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="date"
-                    value={formData.recordedAt.split('T')[0] ?? ''}
-                    onChange={(e) => {
-                      const time = formData.recordedAt.split('T')[1] ?? '12:00';
-                      handleInputChange('recordedAt', `${e.target.value}T${time}`);
-                    }}
-                    disabled={isSubmitting}
-                    className={`w-full min-w-0 px-2 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-telegram-blue focus:border-transparent text-gray-900 bg-white text-sm ${
-                      errors.recordedAt ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                    style={{ colorScheme: 'light' }}
-                  />
-                  <input
-                    type="time"
-                    value={formData.recordedAt.split('T')[1] ?? '12:00'}
-                    onChange={(e) => {
-                      const date = formData.recordedAt.split('T')[0] ?? '';
-                      handleInputChange('recordedAt', `${date}T${e.target.value}`);
-                    }}
-                    disabled={isSubmitting}
-                    className={`w-full min-w-0 px-2 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-telegram-blue focus:border-transparent text-gray-900 bg-white text-sm ${
-                      errors.recordedAt ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                    style={{ colorScheme: 'light' }}
-                  />
+                <div className="flex gap-2">
+                  <div className={`flex-[3] overflow-hidden rounded-lg border ${errors.recordedAt ? 'border-red-300' : 'border-gray-300'}`}>
+                    <input
+                      type="date"
+                      value={formData.recordedAt.split('T')[0] ?? ''}
+                      onChange={(e) => {
+                        const time = formData.recordedAt.split('T')[1] ?? '12:00';
+                        handleInputChange('recordedAt', `${e.target.value}T${time}`);
+                      }}
+                      disabled={isSubmitting}
+                      className="w-full px-2 py-2 text-gray-900 bg-white text-sm border-0 focus:outline-none focus:ring-2 focus:ring-telegram-blue"
+                      style={{ colorScheme: 'light' }}
+                    />
+                  </div>
+                  <div className={`flex-[2] overflow-hidden rounded-lg border ${errors.recordedAt ? 'border-red-300' : 'border-gray-300'}`}>
+                    <input
+                      type="time"
+                      value={formData.recordedAt.split('T')[1] ?? '12:00'}
+                      onChange={(e) => {
+                        const date = formData.recordedAt.split('T')[0] ?? '';
+                        handleInputChange('recordedAt', `${date}T${e.target.value}`);
+                      }}
+                      disabled={isSubmitting}
+                      className="w-full px-2 py-2 text-gray-900 bg-white text-sm border-0 focus:outline-none focus:ring-2 focus:ring-telegram-blue"
+                      style={{ colorScheme: 'light' }}
+                    />
+                  </div>
                 </div>
                 {errors.recordedAt && (
                   <p className="mt-1 text-sm text-red-600">{errors.recordedAt}</p>
