@@ -70,6 +70,9 @@ model MealEntry {
   userId            String          @map("user_id")
   recordedAt        DateTime        @map("recorded_at")
   caloriesEstimated Int             @map("calories_estimated")
+  protein           Float?
+  fat               Float?
+  carbs             Float?
   description       String?
   source            MealEntrySource @default(photo)
   photoFileId       String?         @map("photo_file_id")

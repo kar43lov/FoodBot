@@ -223,7 +223,13 @@ export async function createMealEntry(
   userId: string,
   analysisResult: FoodAnalysisResult,
   photoFileId: string | null
-): Promise<{ id: string; calories: number }> {
+): Promise<{
+  id: string;
+  calories: number;
+  protein: number | null;
+  fat: number | null;
+  carbs: number | null;
+}> {
   const entry = await prisma.mealEntry.create({
     data: {
       projectId,
@@ -235,10 +241,19 @@ export async function createMealEntry(
       photoFileId,
       aiConfidence: analysisResult.food_confidence,
       needsReview: analysisResult.food_confidence < 0.8,
+      protein: analysisResult.protein_g,
+      fat: analysisResult.fat_g,
+      carbs: analysisResult.carbs_g,
     },
   });
 
-  return { id: entry.id, calories: entry.caloriesEstimated };
+  return {
+    id: entry.id,
+    calories: entry.caloriesEstimated,
+    protein: entry.protein,
+    fat: entry.fat,
+    carbs: entry.carbs,
+  };
 }
 
 /**
@@ -305,12 +320,20 @@ export async function handlePhoto(ctx: BotContext, logger: pino.Logger): Promise
     if (analysisResult.is_food && analysisResult.estimated_calories) {
       // Food detected - create entry and reply
       const photoFileId = getPhotoFileId(ctx);
-      const { calories } = await createMealEntry(projectId, userId, analysisResult, photoFileId);
+      const { calories, protein, fat, carbs } = await createMealEntry(
+        projectId,
+        userId,
+        analysisResult,
+        photoFileId
+      );
 
-      handlerLogger.info({ calories, projectId, userId }, 'Meal entry created');
+      handlerLogger.info({ calories, protein, fat, carbs, projectId, userId }, 'Meal entry created');
 
       // Format response
       let response = `✅ Записал ~${calories} ккал`;
+      if (protein !== null && fat !== null && carbs !== null) {
+        response += `\n📊 Б: ${Math.round(protein)}г · Ж: ${Math.round(fat)}г · У: ${Math.round(carbs)}г`;
+      }
       if (analysisResult.description) {
         response += `\n📝 ${analysisResult.description}`;
       }

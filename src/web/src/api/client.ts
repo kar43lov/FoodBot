@@ -45,6 +45,9 @@ export interface MealEntry {
   recordedAt: string;
   caloriesEstimated: number;
   description?: string;
+  protein?: number | null;
+  fat?: number | null;
+  carbs?: number | null;
   source: 'photo' | 'manual' | 'web';
   aiConfidence?: number;
   needsReview: boolean;
@@ -59,6 +62,9 @@ export interface PhotoAnalysisResult {
   food_confidence: number;
   estimated_calories: number | null;
   description: string | null;
+  protein_g: number | null;
+  fat_g: number | null;
+  carbs_g: number | null;
 }
 
 export interface CreateMealData {
@@ -66,6 +72,9 @@ export interface CreateMealData {
   recordedAt: string;
   caloriesEstimated: number;
   description?: string;
+  protein?: number;
+  fat?: number;
+  carbs?: number;
   source?: 'web' | 'manual';
 }
 
@@ -73,6 +82,9 @@ export interface UpdateMealData {
   recordedAt?: string;
   caloriesEstimated?: number;
   description?: string;
+  protein?: number;
+  fat?: number;
+  carbs?: number;
   needsReview?: boolean;
 }
 

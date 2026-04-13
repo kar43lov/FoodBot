@@ -418,6 +418,9 @@ describe('Photo Handler Module', () => {
         food_confidence: 0.9,
         estimated_calories: 500,
         description: 'Pasta with tomato sauce',
+        protein_g: 20,
+        fat_g: 15,
+        carbs_g: 60,
       });
 
       const ctx = createMockContext();
@@ -462,6 +465,9 @@ describe('Photo Handler Module', () => {
         food_confidence: 0.2,
         estimated_calories: null,
         description: null,
+        protein_g: null,
+        fat_g: null,
+        carbs_g: null,
       });
 
       const ctx = createMockContext() as Context & {
@@ -577,6 +583,9 @@ describe('Photo Handler Module', () => {
           food_confidence: 0.85,
           estimated_calories: 350,
           description: 'Salad',
+          protein_g: 15,
+          fat_g: 10,
+          carbs_g: 30,
         },
         'photo-file-id'
       );
@@ -612,6 +621,9 @@ describe('Photo Handler Module', () => {
           food_confidence: 0.65,
           estimated_calories: 200,
           description: 'Unknown dish',
+          protein_g: 10,
+          fat_g: 5,
+          carbs_g: 25,
         },
         null
       );

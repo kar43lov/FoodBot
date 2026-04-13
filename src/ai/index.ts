@@ -14,6 +14,12 @@ export interface FoodAnalysisResult {
   food_confidence: number;
   /** Estimated calories (10-10000 kcal), null if not food */
   estimated_calories: number | null;
+  /** Estimated protein in grams, null if not food */
+  protein_g: number | null;
+  /** Estimated fat in grams, null if not food */
+  fat_g: number | null;
+  /** Estimated carbohydrates in grams, null if not food */
+  carbs_g: number | null;
   /** Description of the food in Russian, null if not food */
   description: string | null;
 }
@@ -37,6 +43,9 @@ const FoodAnalysisResponseSchema = z.object({
   is_food: z.boolean(),
   food_confidence: z.number().min(0).max(1),
   estimated_calories: z.number().positive().nullable(),
+  protein_g: z.number().nonnegative().nullable(),
+  fat_g: z.number().nonnegative().nullable(),
+  carbs_g: z.number().nonnegative().nullable(),
   description: z.string().nullable(),
 });
 
@@ -45,24 +54,31 @@ const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 const MIN_CALORIES = 10;
 const MAX_CALORIES = 10000;
+const MAX_PROTEIN = 500;
+const MAX_FAT = 500;
+const MAX_CARBS = 1000;
 
 // System prompt for food analysis
-const FOOD_ANALYSIS_PROMPT = `You are a food calorie estimation assistant. Analyze the provided image and determine:
+const FOOD_ANALYSIS_PROMPT = `You are a food nutrition estimation assistant. Analyze the provided image and determine:
 1. Whether the image contains food
-2. If food is present, estimate the total calories and provide a brief description in Russian
+2. If food is present, estimate calories, protein, fat, carbohydrates and provide a brief description in Russian
 
 Response format (JSON):
 {
   "is_food": boolean,
   "food_confidence": number (0-1, confidence that image contains food),
   "estimated_calories": number or null (10-10000 kcal if food, null otherwise),
+  "protein_g": number or null (estimated protein in grams, null if not food),
+  "fat_g": number or null (estimated fat in grams, null if not food),
+  "carbs_g": number or null (estimated carbohydrates in grams, null if not food),
   "description": string or null (brief description in Russian if food, null otherwise)
 }
 
 Guidelines:
-- Be conservative with calorie estimates when uncertain
-- For composite dishes, estimate total calories of visible portion
+- Be conservative with estimates when uncertain
+- For composite dishes, estimate total nutrition of visible portion
 - estimated_calories must be between 10 and 10000, or null if not food
+- protein_g, fat_g, carbs_g should be reasonable estimates based on visible portion size
 - food_confidence should reflect how certain you are the image contains food
 - description should be concise (1-2 sentences max) and in Russian`;
 
@@ -199,13 +215,24 @@ export class FoodVisionService {
         is_food: false,
         food_confidence: result.food_confidence,
         estimated_calories: null,
+        protein_g: null,
+        fat_g: null,
+        carbs_g: null,
         description: null,
       };
     }
 
-    // Validate and clamp calories
+    // Validate and clamp calories and macros
     if (result.is_food && result.estimated_calories !== null) {
       result.estimated_calories = this.clampCalories(result.estimated_calories);
+    }
+    if (result.is_food) {
+      if (result.protein_g !== null)
+        result.protein_g = Math.min(MAX_PROTEIN, Math.round(result.protein_g));
+      if (result.fat_g !== null)
+        result.fat_g = Math.min(MAX_FAT, Math.round(result.fat_g));
+      if (result.carbs_g !== null)
+        result.carbs_g = Math.min(MAX_CARBS, Math.round(result.carbs_g));
     }
 
     return result;
@@ -237,6 +264,9 @@ export class FoodVisionService {
       is_food: false,
       food_confidence: 0,
       estimated_calories: null,
+      protein_g: null,
+      fat_g: null,
+      carbs_g: null,
       description: null,
     };
   }

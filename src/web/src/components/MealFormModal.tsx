@@ -6,6 +6,9 @@ export interface MealFormData {
   recordedAt: string;
   caloriesEstimated: number;
   description: string;
+  protein?: number;
+  fat?: number;
+  carbs?: number;
 }
 
 interface MealFormModalProps {
@@ -83,6 +86,9 @@ export default function MealFormModal({
           recordedAt: formatDateTimeLocal(initialData.recordedAt),
           caloriesEstimated: initialData.caloriesEstimated,
           description: initialData.description || '',
+          protein: initialData.protein ?? undefined,
+          fat: initialData.fat ?? undefined,
+          carbs: initialData.carbs ?? undefined,
         });
       } else {
         setInputMode('choose');
@@ -90,6 +96,9 @@ export default function MealFormModal({
           recordedAt: getDefaultDateTime(defaultDate),
           caloriesEstimated: 0,
           description: '',
+          protein: undefined,
+          fat: undefined,
+          carbs: undefined,
         });
       }
       setErrors({});
@@ -117,6 +126,9 @@ export default function MealFormModal({
           ...prev,
           caloriesEstimated: result.estimated_calories!,
           description: result.description || '',
+          protein: result.protein_g ?? undefined,
+          fat: result.fat_g ?? undefined,
+          carbs: result.carbs_g ?? undefined,
         }));
       } else {
         setAnalysisError('AI не распознал еду на фото. Попробуйте другое фото или введите данные вручную.');
@@ -426,6 +438,61 @@ export default function MealFormModal({
                 {errors.caloriesEstimated && (
                   <p className="mt-1 text-sm text-red-600">{errors.caloriesEstimated}</p>
                 )}
+              </div>
+
+              {/* Macros (protein/fat/carbs) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  БЖУ
+                  {inputMode === 'photo' && formData.protein != null && (
+                    <span className="text-xs text-green-600 ml-2">заполнено AI</span>
+                  )}
+                  <span className="text-gray-400 font-normal ml-1">(необязательно)</span>
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label htmlFor="protein" className="block text-xs text-gray-500 mb-0.5">Б</label>
+                    <input
+                      type="number"
+                      id="protein"
+                      min="0"
+                      max="1000"
+                      value={formData.protein ?? ''}
+                      onChange={(e) => handleInputChange('protein' as keyof MealFormData, e.target.value ? parseInt(e.target.value) : 0)}
+                      disabled={isSubmitting}
+                      placeholder="г"
+                      className="w-full px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-telegram-blue focus:border-transparent text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="fat" className="block text-xs text-gray-500 mb-0.5">Ж</label>
+                    <input
+                      type="number"
+                      id="fat"
+                      min="0"
+                      max="1000"
+                      value={formData.fat ?? ''}
+                      onChange={(e) => handleInputChange('fat' as keyof MealFormData, e.target.value ? parseInt(e.target.value) : 0)}
+                      disabled={isSubmitting}
+                      placeholder="г"
+                      className="w-full px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-telegram-blue focus:border-transparent text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="carbs" className="block text-xs text-gray-500 mb-0.5">У</label>
+                    <input
+                      type="number"
+                      id="carbs"
+                      min="0"
+                      max="1000"
+                      value={formData.carbs ?? ''}
+                      onChange={(e) => handleInputChange('carbs' as keyof MealFormData, e.target.value ? parseInt(e.target.value) : 0)}
+                      disabled={isSubmitting}
+                      placeholder="г"
+                      className="w-full px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-telegram-blue focus:border-transparent text-sm"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Description */}

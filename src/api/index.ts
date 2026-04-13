@@ -154,6 +154,9 @@ interface CreateMealBody {
   caloriesEstimated: number;
   description?: string;
   source?: string;
+  protein?: number;
+  fat?: number;
+  carbs?: number;
 }
 
 interface UpdateMealBody {
@@ -161,6 +164,9 @@ interface UpdateMealBody {
   caloriesEstimated?: number;
   description?: string;
   needsReview?: boolean;
+  protein?: number;
+  fat?: number;
+  carbs?: number;
 }
 
 interface MealsQuery {
@@ -702,6 +708,9 @@ export function registerApiRoutes(
               source: { type: 'string' },
               aiConfidence: { type: 'number' },
               needsReview: { type: 'boolean' },
+              protein: { type: 'number', nullable: true },
+              fat: { type: 'number', nullable: true },
+              carbs: { type: 'number', nullable: true },
               user: {
                 type: 'object',
                 properties: {
@@ -769,6 +778,9 @@ export function registerApiRoutes(
         source: m.source,
         aiConfidence: m.aiConfidence,
         needsReview: m.needsReview,
+        protein: m.protein,
+        fat: m.fat,
+        carbs: m.carbs,
         user: {
           firstName: m.user.firstName,
           username: m.user.username,
@@ -792,6 +804,9 @@ export function registerApiRoutes(
           caloriesEstimated: { type: 'number', minimum: 1, maximum: 10000 },
           description: { type: 'string' },
           source: { type: 'string', enum: ['photo', 'manual', 'web'] },
+          protein: { type: 'number' },
+          fat: { type: 'number' },
+          carbs: { type: 'number' },
         },
       },
       response: {
@@ -805,6 +820,9 @@ export function registerApiRoutes(
             caloriesEstimated: { type: 'number' },
             description: { type: 'string' },
             source: { type: 'string' },
+            protein: { type: 'number', nullable: true },
+            fat: { type: 'number', nullable: true },
+            carbs: { type: 'number', nullable: true },
           },
         },
       },
@@ -814,7 +832,8 @@ export function registerApiRoutes(
         return reply.status(404).send({ error: 'User not found in system' });
       }
 
-      const { projectId, recordedAt, caloriesEstimated, description, source } = request.body;
+      const { projectId, recordedAt, caloriesEstimated, description, source, protein, fat, carbs } =
+        request.body;
 
       // Check if user is a member of this project
       const membership = await prisma.membership.findUnique({
@@ -843,6 +862,9 @@ export function registerApiRoutes(
           caloriesEstimated,
           description: description ?? null,
           source: (source ?? MealEntrySource.WEB) as typeof MealEntrySource.WEB,
+          protein: protein ?? null,
+          fat: fat ?? null,
+          carbs: carbs ?? null,
         },
         include: {
           user: {
@@ -874,6 +896,9 @@ export function registerApiRoutes(
         source: mealWithUser.source,
         needsReview: mealWithUser.needsReview,
         aiConfidence: mealWithUser.aiConfidence,
+        protein: mealWithUser.protein,
+        fat: mealWithUser.fat,
+        carbs: mealWithUser.carbs,
         user: {
           firstName: mealWithUser.user.firstName,
           username: mealWithUser.user.username,
@@ -903,6 +928,9 @@ export function registerApiRoutes(
             food_confidence: { type: 'number' },
             estimated_calories: { type: 'number', nullable: true },
             description: { type: 'string', nullable: true },
+            protein_g: { type: 'number', nullable: true },
+            fat_g: { type: 'number', nullable: true },
+            carbs_g: { type: 'number', nullable: true },
           },
         },
       },
@@ -956,6 +984,9 @@ export function registerApiRoutes(
           caloriesEstimated: { type: 'number', minimum: 1, maximum: 10000 },
           description: { type: 'string' },
           needsReview: { type: 'boolean' },
+          protein: { type: 'number' },
+          fat: { type: 'number' },
+          carbs: { type: 'number' },
         },
       },
       response: {
@@ -967,6 +998,9 @@ export function registerApiRoutes(
             caloriesEstimated: { type: 'number' },
             description: { type: 'string' },
             needsReview: { type: 'boolean' },
+            protein: { type: 'number', nullable: true },
+            fat: { type: 'number', nullable: true },
+            carbs: { type: 'number', nullable: true },
           },
         },
       },
@@ -1012,7 +1046,8 @@ export function registerApiRoutes(
         return reply.status(403).send({ error: 'Can only edit own meals or as admin' });
       }
 
-      const { recordedAt, caloriesEstimated, description, needsReview } = request.body;
+      const { recordedAt, caloriesEstimated, description, needsReview, protein, fat, carbs } =
+        request.body;
 
       // Validate calories if provided
       if (caloriesEstimated !== undefined && (caloriesEstimated < 1 || caloriesEstimated > 10000)) {
@@ -1024,12 +1059,18 @@ export function registerApiRoutes(
         caloriesEstimated?: number;
         description?: string;
         needsReview?: boolean;
+        protein?: number;
+        fat?: number;
+        carbs?: number;
       } = {};
 
       if (recordedAt !== undefined) updateData.recordedAt = new Date(recordedAt);
       if (caloriesEstimated !== undefined) updateData.caloriesEstimated = caloriesEstimated;
       if (description !== undefined) updateData.description = description;
       if (needsReview !== undefined) updateData.needsReview = needsReview;
+      if (protein !== undefined) updateData.protein = protein;
+      if (fat !== undefined) updateData.fat = fat;
+      if (carbs !== undefined) updateData.carbs = carbs;
 
       const updatedMeal = await prisma.mealEntry.update({
         where: { id: mealId },
@@ -1060,6 +1101,9 @@ export function registerApiRoutes(
         source: updatedMeal.source,
         aiConfidence: updatedMeal.aiConfidence,
         needsReview: updatedMeal.needsReview,
+        protein: updatedMeal.protein,
+        fat: updatedMeal.fat,
+        carbs: updatedMeal.carbs,
         user: {
           firstName: updatedMeal.user.firstName,
           username: updatedMeal.user.username,
