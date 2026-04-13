@@ -178,13 +178,6 @@ export function registerApiRoutes(
   config: Config,
   logger: pino.Logger
 ): void {
-  // Rewrite /api/* → /* so frontend can use /api prefix in production
-  fastify.addHook('onRequest', async (request) => {
-    if (request.url.startsWith('/api/')) {
-      request.raw.url = request.url.slice(4);
-    }
-  });
-
   // JWT secret derived from bot token
   const jwtSecret = getJwtSecret(config.bot.token);
 
@@ -524,18 +517,19 @@ export function registerApiRoutes(
         return reply.status(401).send({ error: 'Auth data expired' });
       }
 
-      // Find user in database
-      const dbUser = await prisma.user.findUnique({
+      // Find or create user in database
+      await prisma.user.upsert({
         where: { telegramUserId: BigInt(userData.id) },
+        update: {
+          firstName: userData.first_name,
+          username: userData.username ?? null,
+        },
+        create: {
+          telegramUserId: BigInt(userData.id),
+          firstName: userData.first_name,
+          username: userData.username ?? null,
+        },
       });
-
-      // If user not in system, return specific error for redirect
-      if (!dbUser) {
-        return reply.status(403).send({
-          error: 'User not registered. Please use the bot first to create an account.',
-          code: 'USER_NOT_REGISTERED',
-        });
-      }
 
       // Create JWT token
       const token = createToken(
