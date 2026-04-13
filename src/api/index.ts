@@ -178,6 +178,13 @@ export function registerApiRoutes(
   config: Config,
   logger: pino.Logger
 ): void {
+  // Rewrite /api/* → /* so frontend can use /api prefix in production
+  fastify.addHook('onRequest', async (request) => {
+    if (request.url.startsWith('/api/')) {
+      request.raw.url = request.url.slice(4);
+    }
+  });
+
   // JWT secret derived from bot token
   const jwtSecret = getJwtSecret(config.bot.token);
 
@@ -1154,8 +1161,11 @@ export function registerApiRoutes(
     wildcard: false,
   });
 
-  // SPA fallback: serve index.html for all unmatched routes
-  fastify.setNotFoundHandler(async (_request, reply) => {
+  // SPA fallback: serve index.html for unmatched frontend routes (not API)
+  fastify.setNotFoundHandler(async (request, reply) => {
+    if (request.url.startsWith('/api/')) {
+      return reply.status(404).send({ error: 'Not found' });
+    }
     return reply.sendFile('index.html', webDistPath);
   });
 }
