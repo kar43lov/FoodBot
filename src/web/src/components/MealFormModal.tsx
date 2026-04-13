@@ -375,7 +375,7 @@ export default function MealFormModal({
 
           {/* Form (manual or after successful photo analysis) */}
           {showForm && (
-            <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
+            <form key={initialData?.id ?? 'new'} onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
               {/* Photo preview with AI result */}
               {inputMode === 'photo' && photoPreview && analysisResult && (
                 <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
@@ -405,9 +405,10 @@ export default function MealFormModal({
                   value={formData.recordedAt}
                   onChange={(e) => handleInputChange('recordedAt', e.target.value)}
                   disabled={isSubmitting}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-telegram-blue focus:border-transparent ${
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-telegram-blue focus:border-transparent text-gray-900 bg-white ${
                     errors.recordedAt ? 'border-red-300' : 'border-gray-300'
                   }`}
+                  style={{ colorScheme: 'light' }}
                 />
                 {errors.recordedAt && (
                   <p className="mt-1 text-sm text-red-600">{errors.recordedAt}</p>
@@ -425,13 +426,14 @@ export default function MealFormModal({
                 <input
                   type="number"
                   id="calories"
+                  inputMode="numeric"
                   min="1"
                   max="10000"
-                  value={formData.caloriesEstimated || ''}
+                  value={formData.caloriesEstimated > 0 ? String(formData.caloriesEstimated) : ''}
                   onChange={(e) => handleInputChange('caloriesEstimated', parseInt(e.target.value) || 0)}
                   disabled={isSubmitting}
                   placeholder="Например: 350"
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-telegram-blue focus:border-transparent ${
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-telegram-blue focus:border-transparent text-gray-900 bg-white ${
                     errors.caloriesEstimated ? 'border-red-300' : 'border-gray-300'
                   }`}
                 />
@@ -512,7 +514,7 @@ export default function MealFormModal({
                   disabled={isSubmitting}
                   rows={2}
                   placeholder="Что вы съели?"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-telegram-blue focus:border-transparent resize-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-telegram-blue focus:border-transparent resize-none text-gray-900 bg-white"
                 />
               </div>
 
