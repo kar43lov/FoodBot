@@ -3,6 +3,7 @@ import { useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
 import ProjectsPage from './pages/ProjectsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
+import ProfilePage from './pages/ProfilePage';
 import LoadingSpinner from './components/LoadingSpinner';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -51,6 +52,14 @@ function App() {
           element={
             <PrivateRoute>
               <ProjectDetailPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <PrivateRoute>
+              <ProfilePage />
             </PrivateRoute>
           }
         />

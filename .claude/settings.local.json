@@ -28,7 +28,9 @@
       "Bash(grep \"VITE_API_URL\" dist/assets/*.js)",
       "Bash(grep -o 'VITE_API_URL[^,]*\\\\|API_BASE[^,;]*\\\\|\"/api\"' dist/assets/*.js)",
       "Bash(grep -o '\"/api\"\\\\|/api/' dist/assets/*.js)",
-      "Bash(ssh:*)"
+      "Bash(ssh:*)",
+      "Bash(npx prisma:*)",
+      "Bash(ls /Users/pgmac/Data/prjcts/FoodBot/.env*)"
     ]
   },
   "enableAllProjectMcpServers": true,

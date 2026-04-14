@@ -4,8 +4,7 @@ import { prisma, MembershipRole } from '../db/index.js';
 import { getConfig } from '../config/index.js';
 import { upsertProject, upsertUser, upsertMembership } from './photoHandler.js';
 import { getAccessControl } from './accessControl.js';
-
-const DAILY_NORMS = { calories: 2000, protein: 60, fat: 70, carbs: 250 };
+import { getUserNorms, DAILY_NORMS, type NutritionNorms } from './nutrition.js';
 
 /**
  * Bot commands module.
@@ -104,6 +103,9 @@ export async function handleStartCommand(ctx: Context): Promise<void> {
     `\n\n💡 В группах доступны:\n` +
     `/today, /myweek, /project, /setadmin\n` +
     `+ отправка фото еды`;
+
+  text +=
+    `\n\n🎯 Настройте личные цели КБЖУ — откройте приложение (кнопка «Открыть») → Профиль`;
 
   await ctx.reply(text);
 }
@@ -225,17 +227,18 @@ function getMacroStatus(actual: number, norm: number): MacroStatus {
 function formatMacroBalance(
   totalProtein: number,
   totalFat: number,
-  totalCarbs: number
+  totalCarbs: number,
+  norms: NutritionNorms = DAILY_NORMS
 ): string {
   const statusIcon = (s: MacroStatus) =>
     s === 'deficit' ? '↓' : s === 'excess' ? '↑' : '✓';
-  const ps = getMacroStatus(totalProtein, DAILY_NORMS.protein);
-  const fs = getMacroStatus(totalFat, DAILY_NORMS.fat);
-  const cs = getMacroStatus(totalCarbs, DAILY_NORMS.carbs);
+  const ps = getMacroStatus(totalProtein, norms.protein);
+  const fs = getMacroStatus(totalFat, norms.fat);
+  const cs = getMacroStatus(totalCarbs, norms.carbs);
   return (
-    `📋 Баланс: Б ${Math.round(totalProtein)}/${DAILY_NORMS.protein}г ${statusIcon(ps)}` +
-    ` · Ж ${Math.round(totalFat)}/${DAILY_NORMS.fat}г ${statusIcon(fs)}` +
-    ` · У ${Math.round(totalCarbs)}/${DAILY_NORMS.carbs}г ${statusIcon(cs)}`
+    `📋 Баланс: Б ${Math.round(totalProtein)}/${norms.protein}г ${statusIcon(ps)}` +
+    ` · Ж ${Math.round(totalFat)}/${norms.fat}г ${statusIcon(fs)}` +
+    ` · У ${Math.round(totalCarbs)}/${norms.carbs}г ${statusIcon(cs)}`
   );
 }
 
@@ -306,7 +309,10 @@ async function loadUserHistory(
   return Array.from(byDay.entries()).map(([date, data]) => ({ date, ...data }));
 }
 
-async function generatePersonRecommendation(person: PersonData): Promise<string> {
+async function generatePersonRecommendation(
+  person: PersonData,
+  norms: NutritionNorms = DAILY_NORMS
+): Promise<string> {
   const mealsList = person.todayMeals
     .map((m) => `${m.description ?? 'Без описания'}: ${m.calories} ккал (Б${m.protein} Ж${m.fat} У${m.carbs})`)
     .join('\n');
@@ -321,7 +327,7 @@ async function generatePersonRecommendation(person: PersonData): Promise<string>
     `Сегодня:\n${mealsList}\n` +
     `Итого: ${t.calories} ккал, Б${Math.round(t.protein)}г Ж${Math.round(t.fat)}г У${Math.round(t.carbs)}г\n\n` +
     `История (предыдущие дни):\n${historyStr}\n\n` +
-    `Нормы: ${DAILY_NORMS.calories} ккал, Б${DAILY_NORMS.protein}г, Ж${DAILY_NORMS.fat}г, У${DAILY_NORMS.carbs}г`;
+    `Личные нормы: ${norms.calories} ккал, Б${norms.protein}г, Ж${norms.fat}г, У${norms.carbs}г`;
 
   const systemPrompt =
     'Ты — дружелюбный диетолог-помощник в групповом фитнес-челлендже. ' +
@@ -440,9 +446,10 @@ export async function buildTodaySummary(projectId: string): Promise<string | nul
     };
     personDataList.push(personData);
 
-    // Per-person AI recommendation
+    // Per-person AI recommendation with personal norms
     if (hasMacros) {
-      const tip = await generatePersonRecommendation(personData);
+      const userNorms = await getUserNorms(u.userId);
+      const tip = await generatePersonRecommendation(personData, userNorms);
       if (tip) lines.push(`  💡 ${tip}`);
     }
 
@@ -462,6 +469,16 @@ export async function buildTodaySummary(projectId: string): Promise<string | nul
   }
 
   lines.push(`\n✏️ Если что-то записано неточно — откройте бота, нажмите «Открыть» и отредактируйте запись.`);
+
+  // Check if any users lack personal goals
+  const usersWithoutGoals: string[] = [];
+  for (const u of byUser.values()) {
+    const goal = await prisma.userGoal.findUnique({ where: { userId: u.userId } });
+    if (!goal) usersWithoutGoals.push(u.name);
+  }
+  if (usersWithoutGoals.length > 0) {
+    lines.push(`🎯 ${usersWithoutGoals.join(', ')} — настройте цели в приложении для персональных рекомендаций!`);
+  }
 
   return lines.join('\n');
 }
@@ -666,9 +683,10 @@ export async function handleTodayCommand(ctx: Context): Promise<void> {
     })
     .join('\n');
 
+  const userNorms = await getUserNorms(user.id);
   let footer = `━━━━━━━━━━━━━━━\n📈 Всего: ${totalCalories} ккал`;
   if (hasMacros) {
-    footer += `\n${formatMacroBalance(totalProtein, totalFat, totalCarbs)}`;
+    footer += `\n${formatMacroBalance(totalProtein, totalFat, totalCarbs, userNorms)}`;
   }
 
   const tip = getTodayTip(totalCalories);
@@ -770,12 +788,13 @@ export async function handleMyWeekCommand(ctx: Context): Promise<void> {
   const totalDaysSoFar = dayOfWeek === 0 ? 7 : dayOfWeek;
   const tip = getWeekTip(avgCalories, daysWithEntries, totalDaysSoFar);
 
+  const userNorms = await getUserNorms(user.id);
   let macroLine = '';
   if (hasMacros) {
     const avgP = Math.round(totalProtein / daysWithEntries);
     const avgF = Math.round(totalFat / daysWithEntries);
     const avgC = Math.round(totalCarbs / daysWithEntries);
-    macroLine = `\n${formatMacroBalance(avgP, avgF, avgC)}`;
+    macroLine = `\n${formatMacroBalance(avgP, avgF, avgC, userNorms)}`;
   }
 
   await ctx.reply(

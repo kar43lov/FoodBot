@@ -48,32 +48,11 @@
 - Modify: `prisma/schema.prisma`
 - Modify: `prisma/schema.prod.prisma`
 
-- [ ] Добавить модель `UserGoal` в `prisma/schema.prisma`:
-  ```prisma
-  model UserGoal {
-    id             String   @id @default(cuid())
-    userId         String   @unique @map("user_id")
-    sex            String   // "male" | "female"
-    age            Int
-    weight         Float    // kg
-    height         Float    // cm
-    activityLevel  String   @map("activity_level") // "sedentary"|"light"|"moderate"|"active"
-    goal           String   // "lose"|"maintain"|"gain"
-    targetCalories Int      @map("target_calories")
-    targetProtein  Int      @map("target_protein")
-    targetFat      Int      @map("target_fat")
-    targetCarbs    Int      @map("target_carbs")
-    createdAt      DateTime @default(now()) @map("created_at")
-    updatedAt      DateTime @updatedAt @map("updated_at")
-    
-    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-    @@map("user_goals")
-  }
-  ```
-- [ ] Добавить обратную связь `userGoal UserGoal?` в модель `User`
-- [ ] Дублировать в `prisma/schema.prod.prisma` (с enum `Sex`, `ActivityLevel`, `GoalType` вместо String)
-- [ ] Запустить `npx prisma db push` для dev
-- [ ] Запустить `npx prisma generate` — убедиться что client генерируется
+- [x] Добавить модель `UserGoal` в `prisma/schema.prisma`
+- [x] Добавить обратную связь `userGoal UserGoal?` в модель `User`
+- [x] Дублировать в `prisma/schema.prod.prisma` (с enum `Sex`, `ActivityLevel`, `GoalType`)
+- [x] Запустить `npx prisma db push` для dev
+- [x] Запустить `npx prisma generate` — client сгенерирован
 
 ### Task 2: Функция calculateTDEE + тесты
 

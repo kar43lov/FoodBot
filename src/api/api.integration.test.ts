@@ -72,6 +72,10 @@ vi.mock('../db/index.js', () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
+    userGoal: {
+      findUnique: vi.fn(),
+      upsert: vi.fn(),
+    },
   },
   MembershipRole: {
     MEMBER: 'member',
@@ -667,6 +671,185 @@ describe('API Integration Tests', () => {
       });
 
       expect(response.statusCode).toBe(404);
+    });
+  });
+
+  describe('GET /profile/goals', () => {
+    it('should return 401 without authorization', async () => {
+      const response = await server.inject({
+        method: 'GET',
+        url: '/profile/goals',
+      });
+
+      expect(response.statusCode).toBe(401);
+    });
+
+    it('should return default norms when no goals set', async () => {
+      vi.mocked(prisma.userGoal.findUnique).mockResolvedValue(null);
+
+      const response = await server.inject({
+        method: 'GET',
+        url: '/profile/goals',
+        headers: {
+          authorization: `Bearer ${jwtToken}`,
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.payload) as {
+        goals: null;
+        norms: { calories: number; protein: number; fat: number; carbs: number };
+      };
+      expect(body.goals).toBeNull();
+      expect(body.norms).toEqual({ calories: 2000, protein: 60, fat: 70, carbs: 250 });
+    });
+
+    it('should return saved goals and norms', async () => {
+      vi.mocked(prisma.userGoal.findUnique).mockResolvedValue({
+        id: 'goal-1',
+        userId: mockUser.id,
+        sex: 'male',
+        age: 30,
+        weight: 80,
+        height: 180,
+        activityLevel: 'moderate',
+        goal: 'maintain',
+        targetCalories: 2700,
+        targetProtein: 169,
+        targetFat: 60,
+        targetCarbs: 371,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as never);
+
+      const response = await server.inject({
+        method: 'GET',
+        url: '/profile/goals',
+        headers: {
+          authorization: `Bearer ${jwtToken}`,
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.payload) as {
+        goals: { sex: string; age: number };
+        norms: { calories: number };
+      };
+      expect(body.goals.sex).toBe('male');
+      expect(body.goals.age).toBe(30);
+      expect(body.norms.calories).toBe(2700);
+    });
+  });
+
+  describe('PUT /profile/goals', () => {
+    it('should return 401 without authorization', async () => {
+      const response = await server.inject({
+        method: 'PUT',
+        url: '/profile/goals',
+        payload: {
+          sex: 'male',
+          age: 30,
+          weight: 80,
+          height: 180,
+          activityLevel: 'moderate',
+          goal: 'maintain',
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+    });
+
+    it('should save goals and return calculated norms', async () => {
+      vi.mocked(prisma.userGoal.upsert).mockResolvedValue({} as never);
+
+      const response = await server.inject({
+        method: 'PUT',
+        url: '/profile/goals',
+        headers: {
+          authorization: `Bearer ${jwtToken}`,
+        },
+        payload: {
+          sex: 'male',
+          age: 30,
+          weight: 80,
+          height: 180,
+          activityLevel: 'moderate',
+          goal: 'maintain',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.payload) as {
+        goals: { sex: string; age: number; weight: number; height: number };
+        norms: { calories: number; protein: number; fat: number; carbs: number };
+      };
+      expect(body.goals.sex).toBe('male');
+      expect(body.goals.age).toBe(30);
+      expect(body.norms.calories).toBeGreaterThan(0);
+      expect(body.norms.protein).toBeGreaterThan(0);
+      expect(body.norms.fat).toBeGreaterThan(0);
+      expect(body.norms.carbs).toBeGreaterThan(0);
+      expect(prisma.userGoal.upsert).toHaveBeenCalled();
+    });
+
+    it('should return 400 for invalid sex', async () => {
+      const response = await server.inject({
+        method: 'PUT',
+        url: '/profile/goals',
+        headers: {
+          authorization: `Bearer ${jwtToken}`,
+        },
+        payload: {
+          sex: 'invalid',
+          age: 30,
+          weight: 80,
+          height: 180,
+          activityLevel: 'moderate',
+          goal: 'maintain',
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('should return 400 for out-of-range age', async () => {
+      const response = await server.inject({
+        method: 'PUT',
+        url: '/profile/goals',
+        headers: {
+          authorization: `Bearer ${jwtToken}`,
+        },
+        payload: {
+          sex: 'male',
+          age: 5,
+          weight: 80,
+          height: 180,
+          activityLevel: 'moderate',
+          goal: 'maintain',
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('should return 400 for invalid goal', async () => {
+      const response = await server.inject({
+        method: 'PUT',
+        url: '/profile/goals',
+        headers: {
+          authorization: `Bearer ${jwtToken}`,
+        },
+        payload: {
+          sex: 'male',
+          age: 30,
+          weight: 80,
+          height: 180,
+          activityLevel: 'moderate',
+          goal: 'bulk',
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
     });
   });
 
