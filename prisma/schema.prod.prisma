@@ -66,6 +66,17 @@ model UserGoal {
   @@map("user_goals")
 }
 
+model Tip {
+  id        String   @id @default(cuid())
+  text      String
+  active    Boolean  @default(true)
+  createdBy BigInt   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("tips")
+}
+
 enum Sex {
   male
   female

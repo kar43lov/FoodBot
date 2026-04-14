@@ -9,6 +9,7 @@ export const ADMIN_COMMANDS = [
   'setmanager',
   'removemanager',
   'listallowed',
+  'tips',
 ] as const;
 
 const PUBLIC_COMMANDS = ['start', 'help'] as const;
