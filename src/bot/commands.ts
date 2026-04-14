@@ -68,7 +68,7 @@ export async function handleStartCommand(ctx: Context): Promise<void> {
       const superAdminUser = await prisma.user.findUnique({
         where: { telegramUserId: BigInt(config.superAdminId) },
       });
-      const managers = await prisma.manager.findMany();
+      const managers = await prisma.manager.findMany() ?? [];
       const managerUsers = managers.length > 0
         ? await prisma.user.findMany({
             where: { telegramUserId: { in: managers.map((m) => m.telegramUserId) } },
@@ -506,7 +506,10 @@ export async function buildTodaySummary(projectId: string): Promise<string | nul
     if (!goal) usersWithoutGoals.push(u.name);
   }
   if (usersWithoutGoals.length > 0) {
-    lines.push(`🎯 ${usersWithoutGoals.join(', ')} — настройте цели в приложении для персональных рекомендаций!`);
+    lines.push(
+      `\n🎯 ${usersWithoutGoals.join(', ')} — для персональных рекомендаций ` +
+      `перейдите в бот → нажмите «Открыть» → Профиль → укажите свои данные.`
+    );
   }
 
   return lines.join('\n');

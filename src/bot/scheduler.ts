@@ -45,15 +45,15 @@ async function sendToAllGroups(
  * - Weekly summary at 20:00 MSK (17:00 UTC) on Sundays to all groups
  */
 export function startScheduler(bot: Bot<BotContext>, logger: pino.Logger): void {
-  // Daily at 21:00 MSK = 18:00 UTC
-  cron.schedule('0 18 * * *', async () => {
+  // Daily at 21:00 MSK (TZ=Europe/Moscow set in .env on server)
+  cron.schedule('0 21 * * *', async () => {
     logger.info({ event: 'scheduler_daily_start' });
     await sendToAllGroups(bot, logger, buildTodaySummary);
     logger.info({ event: 'scheduler_daily_done' });
   });
 
-  // Sunday at 20:00 MSK = 17:00 UTC
-  cron.schedule('0 17 * * 0', async () => {
+  // Sunday at 20:00 MSK
+  cron.schedule('0 20 * * 0', async () => {
     logger.info({ event: 'scheduler_weekly_start' });
     await sendToAllGroups(bot, logger, buildWeekSummary);
     logger.info({ event: 'scheduler_weekly_done' });
