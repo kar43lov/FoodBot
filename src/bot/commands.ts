@@ -61,9 +61,33 @@ export async function handleStartCommand(ctx: Context): Promise<void> {
       }
       text += `\nОтправляй фото еды в эти группы для отслеживания калорий.`;
     } else {
-      text +=
-        `🔒 Сейчас у тебя нет доступа к боту.\n` +
-        `Бот работает по приглашению — обратись к администратору для получения доступа.`;
+      text += `🔒 Сейчас у тебя нет доступа к боту.\n`;
+
+      // Show admin contacts
+      const config = getConfig();
+      const superAdminUser = await prisma.user.findUnique({
+        where: { telegramUserId: BigInt(config.superAdminId) },
+      });
+      const managers = await prisma.manager.findMany();
+      const managerUsers = managers.length > 0
+        ? await prisma.user.findMany({
+            where: { telegramUserId: { in: managers.map((m) => m.telegramUserId) } },
+          })
+        : [];
+
+      const contacts: string[] = [];
+      if (superAdminUser?.username) contacts.push(`@${superAdminUser.username}`);
+      for (const mu of managerUsers) {
+        if (mu.username && mu.telegramUserId !== BigInt(config.superAdminId)) {
+          contacts.push(`@${mu.username}`);
+        }
+      }
+
+      if (contacts.length > 0) {
+        text += `Напиши ${contacts.join(' или ')} для получения доступа.`;
+      } else {
+        text += `Обратись к администратору для получения доступа.`;
+      }
     }
 
     await ctx.reply(text);
