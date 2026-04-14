@@ -5,6 +5,7 @@ import { getConfig } from '../config/index.js';
 import { upsertProject, upsertUser, upsertMembership } from './photoHandler.js';
 import { getAccessControl } from './accessControl.js';
 import { getUserNorms, DAILY_NORMS, type NutritionNorms } from './nutrition.js';
+import { getRandomTip } from './tips.js';
 
 /**
  * Bot commands module.
@@ -89,7 +90,8 @@ export async function handleStartCommand(ctx: Context): Promise<void> {
       `/denychat — Запретить группу\n` +
       `/allowuser <id/@user> — Разрешить пользователя\n` +
       `/denyuser <id> — Запретить пользователя\n` +
-      `/listallowed — Список разрешённых`;
+      `/listallowed — Список разрешённых\n` +
+      `/tips — Управление подсказками`;
   }
 
   if (isSuperAdmin) {
@@ -154,7 +156,8 @@ export async function handleHelpCommand(ctx: Context): Promise<void> {
       `/denychat — Запретить группу\n` +
       `/allowuser <id/@user> — Разрешить пользователя\n` +
       `/denyuser <id> — Запретить пользователя\n` +
-      `/listallowed — Список разрешённых`;
+      `/listallowed — Список разрешённых\n` +
+      `/tips — Управление подсказками`;
   }
 
   if (isSuperAdmin) {
@@ -468,9 +471,11 @@ export async function buildTodaySummary(projectId: string): Promise<string | nul
     if (tip) lines.push(`\n${tip}`);
   }
 
-  lines.push(`\n✏️ Если что-то записано неточно — откройте бота, нажмите «Открыть» и отредактируйте запись.`);
+  // Random tip from DB
+  const randomTip = await getRandomTip();
+  if (randomTip) lines.push(`\n${randomTip}`);
 
-  // Check if any users lack personal goals
+  // Nudge users without goals
   const usersWithoutGoals: string[] = [];
   for (const u of byUser.values()) {
     const goal = await prisma.userGoal.findUnique({ where: { userId: u.userId } });

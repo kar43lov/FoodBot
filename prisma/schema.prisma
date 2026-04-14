@@ -63,6 +63,18 @@ model UserGoal {
   @@map("user_goals")
 }
 
+// Tip stores configurable hint messages shown in reports
+model Tip {
+  id        String   @id @default(cuid())
+  text      String
+  active    Boolean  @default(true)
+  createdBy BigInt   @map("created_by") // telegram user id
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("tips")
+}
+
 // Membership connects users to projects with roles
 model Membership {
   id        String   @id @default(cuid())

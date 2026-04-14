@@ -24,6 +24,7 @@ import {
   handleListAllowedCommand,
 } from './adminCommands.js';
 import { registerApiRoutes } from '../api/index.js';
+import { handleTipsCommand, handleTipsCallback, handleTipsTextInput } from './tipsCommands.js';
 
 /**
  * Custom bot context with additional properties.
@@ -91,6 +92,21 @@ export function createBot(config: Config, logger: pino.Logger): Bot<BotContext> 
   bot.command('setmanager', handleSetManagerCommand);
   bot.command('removemanager', handleRemoveManagerCommand);
   bot.command('listallowed', handleListAllowedCommand);
+  bot.command('tips', handleTipsCommand);
+
+  // Callback query handler for inline buttons (tips management)
+  bot.on('callback_query:data', async (ctx) => {
+    const data = ctx.callbackQuery.data;
+    if (data.startsWith('tip_')) {
+      await handleTipsCallback(ctx);
+    }
+  });
+
+  // Text input handler for tips add/edit (must be before photo handler)
+  bot.on('message:text', async (ctx, next) => {
+    const handled = await handleTipsTextInput(ctx);
+    if (!handled) await next();
+  });
 
   // Photo handler - process food images
   bot.on('message:photo', async (ctx) => {
