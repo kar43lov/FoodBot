@@ -39,8 +39,49 @@ model User {
 
   memberships Membership[]
   mealEntries MealEntry[]
+  userGoal    UserGoal?
 
   @@map("users")
+}
+
+// UserGoal stores personalized nutrition targets
+model UserGoal {
+  id             String        @id @default(cuid())
+  userId         String        @unique @map("user_id")
+  sex            Sex
+  age            Int
+  weight         Float
+  height         Float
+  activityLevel  ActivityLevel @map("activity_level")
+  goal           GoalType
+  targetCalories Int           @map("target_calories")
+  targetProtein  Int           @map("target_protein")
+  targetFat      Int           @map("target_fat")
+  targetCarbs    Int           @map("target_carbs")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_goals")
+}
+
+enum Sex {
+  male
+  female
+}
+
+enum ActivityLevel {
+  sedentary
+  light
+  moderate
+  active
+}
+
+enum GoalType {
+  lose
+  maintain
+  gain
 }
 
 // Membership connects users to projects with roles

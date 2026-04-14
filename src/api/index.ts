@@ -11,6 +11,7 @@ import { Config } from '../config/index.js';
 import { prisma, MembershipRole, MealEntrySource } from '../db/index.js';
 import { createToken, verifyToken, extractBearerToken, getJwtSecret } from './jwt.js';
 import { getFoodVisionService } from '../ai/index.js';
+import { calculateTDEE, calculateMacros, DAILY_NORMS } from '../bot/nutrition.js';
 
 /**
  * Telegram WebApp/Login Widget auth data
@@ -194,7 +195,7 @@ export function registerApiRoutes(
     'preHandler',
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
       // Only require auth for API routes; everything else is frontend/public
-      const apiPaths = ['/projects', '/meals', '/auth/me'];
+      const apiPaths = ['/projects', '/meals', '/auth/me', '/profile'];
       const isApiRoute = apiPaths.some((p) => request.url.startsWith(p));
       const isPublic = !isApiRoute;
 
@@ -1184,6 +1185,200 @@ export function registerApiRoutes(
       });
 
       return { success: true };
+    },
+  });
+
+  // GET /profile/goals - Get user nutrition goals
+  fastify.get('/profile/goals', {
+    schema: {
+      description: 'Get user nutrition goals and calculated norms',
+      tags: ['Profile'],
+      security: [{ telegramAuth: [] }],
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            goals: {
+              type: ['object', 'null'],
+              properties: {
+                sex: { type: 'string' },
+                age: { type: 'number' },
+                weight: { type: 'number' },
+                height: { type: 'number' },
+                activityLevel: { type: 'string' },
+                goal: { type: 'string' },
+              },
+            },
+            norms: {
+              type: 'object',
+              properties: {
+                calories: { type: 'number' },
+                protein: { type: 'number' },
+                fat: { type: 'number' },
+                carbs: { type: 'number' },
+              },
+            },
+          },
+        },
+      },
+    },
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      if (!request.user?.userId) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      const userGoal = await prisma.userGoal.findUnique({
+        where: { userId: request.user.userId },
+      });
+
+      if (!userGoal) {
+        return { goals: null, norms: DAILY_NORMS };
+      }
+
+      return {
+        goals: {
+          sex: userGoal.sex,
+          age: userGoal.age,
+          weight: userGoal.weight,
+          height: userGoal.height,
+          activityLevel: userGoal.activityLevel,
+          goal: userGoal.goal,
+        },
+        norms: {
+          calories: userGoal.targetCalories,
+          protein: userGoal.targetProtein,
+          fat: userGoal.targetFat,
+          carbs: userGoal.targetCarbs,
+        },
+      };
+    },
+  });
+
+  // PUT /profile/goals - Update user nutrition goals
+  interface ProfileGoalsBody {
+    sex: string;
+    age: number;
+    weight: number;
+    height: number;
+    activityLevel: string;
+    goal: string;
+  }
+
+  fastify.put<{ Body: ProfileGoalsBody }>('/profile/goals', {
+    schema: {
+      description: 'Update user nutrition goals',
+      tags: ['Profile'],
+      security: [{ telegramAuth: [] }],
+      body: {
+        type: 'object',
+        required: ['sex', 'age', 'weight', 'height', 'activityLevel', 'goal'],
+        properties: {
+          sex: { type: 'string' },
+          age: { type: 'number' },
+          weight: { type: 'number' },
+          height: { type: 'number' },
+          activityLevel: { type: 'string' },
+          goal: { type: 'string' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            goals: {
+              type: 'object',
+              properties: {
+                sex: { type: 'string' },
+                age: { type: 'number' },
+                weight: { type: 'number' },
+                height: { type: 'number' },
+                activityLevel: { type: 'string' },
+                goal: { type: 'string' },
+              },
+            },
+            norms: {
+              type: 'object',
+              properties: {
+                calories: { type: 'number' },
+                protein: { type: 'number' },
+                fat: { type: 'number' },
+                carbs: { type: 'number' },
+              },
+            },
+          },
+        },
+      },
+    },
+    handler: async (
+      request: FastifyRequest<{ Body: ProfileGoalsBody }>,
+      reply: FastifyReply
+    ) => {
+      if (!request.user?.userId) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      const { sex, age, weight, height, activityLevel, goal } = request.body;
+
+      // Validation
+      if (!['male', 'female'].includes(sex)) {
+        return reply.status(400).send({ error: 'sex must be "male" or "female"' });
+      }
+      if (age < 10 || age > 120) {
+        return reply.status(400).send({ error: 'age must be between 10 and 120' });
+      }
+      if (weight < 20 || weight > 300) {
+        return reply.status(400).send({ error: 'weight must be between 20 and 300' });
+      }
+      if (height < 100 || height > 250) {
+        return reply.status(400).send({ error: 'height must be between 100 and 250' });
+      }
+      if (!['sedentary', 'light', 'moderate', 'active'].includes(activityLevel)) {
+        return reply
+          .status(400)
+          .send({ error: 'activityLevel must be one of: sedentary, light, moderate, active' });
+      }
+      if (!['lose', 'maintain', 'gain'].includes(goal)) {
+        return reply.status(400).send({ error: 'goal must be one of: lose, maintain, gain' });
+      }
+
+      // Calculate TDEE and macros
+      const tdee = calculateTDEE(sex, age, weight, height, activityLevel);
+      const norms = calculateMacros(tdee, goal);
+
+      // Upsert UserGoal
+      await prisma.userGoal.upsert({
+        where: { userId: request.user.userId },
+        update: {
+          sex,
+          age,
+          weight,
+          height,
+          activityLevel,
+          goal,
+          targetCalories: norms.calories,
+          targetProtein: norms.protein,
+          targetFat: norms.fat,
+          targetCarbs: norms.carbs,
+        },
+        create: {
+          userId: request.user.userId,
+          sex,
+          age,
+          weight,
+          height,
+          activityLevel,
+          goal,
+          targetCalories: norms.calories,
+          targetProtein: norms.protein,
+          targetFat: norms.fat,
+          targetCarbs: norms.carbs,
+        },
+      });
+
+      return {
+        goals: { sex, age, weight, height, activityLevel, goal },
+        norms,
+      };
     },
   });
 

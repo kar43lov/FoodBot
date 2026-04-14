@@ -88,6 +88,27 @@ export interface UpdateMealData {
   needsReview?: boolean;
 }
 
+export interface UserGoals {
+  sex: string;
+  age: number;
+  weight: number;
+  height: number;
+  activityLevel: string;
+  goal: string;
+}
+
+export interface NutritionNorms {
+  calories: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+}
+
+export interface GoalsResponse {
+  goals: UserGoals | null;
+  norms: NutritionNorms;
+}
+
 class ApiError extends Error {
   code?: string;
   status: number;
@@ -192,6 +213,15 @@ export const api = {
     request<PhotoAnalysisResult>('/meals/analyze-photo', {
       method: 'POST',
       body: JSON.stringify({ photo: photoBase64 }),
+    }, token),
+
+  getGoals: (token: string): Promise<GoalsResponse> =>
+    request<GoalsResponse>('/profile/goals', {}, token),
+
+  updateGoals: (token: string, data: UserGoals): Promise<GoalsResponse> =>
+    request<GoalsResponse>('/profile/goals', {
+      method: 'PUT',
+      body: JSON.stringify(data),
     }, token),
 };
 

@@ -25,6 +25,9 @@ vi.mock('../db/index.js', () => ({
     mealEntry: {
       findMany: vi.fn(),
     },
+    userGoal: {
+      findUnique: vi.fn(),
+    },
   },
   MembershipRole: {
     MEMBER: 'member',
@@ -41,6 +44,12 @@ vi.mock('./photoHandler.js', () => ({
   upsertProject: vi.fn(),
   upsertUser: vi.fn(),
   upsertMembership: vi.fn(),
+}));
+
+// Mock nutrition
+vi.mock('./nutrition.js', () => ({
+  getUserNorms: vi.fn().mockResolvedValue({ calories: 2000, protein: 60, fat: 70, carbs: 250 }),
+  DAILY_NORMS: { calories: 2000, protein: 60, fat: 70, carbs: 250 },
 }));
 
 // Mock accessControl
