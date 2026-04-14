@@ -28,6 +28,9 @@ vi.mock('../db/index.js', () => ({
     userGoal: {
       findUnique: vi.fn(),
     },
+    manager: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   },
   MembershipRole: {
     MEMBER: 'member',
@@ -50,6 +53,16 @@ vi.mock('./photoHandler.js', () => ({
 vi.mock('./nutrition.js', () => ({
   getUserNorms: vi.fn().mockResolvedValue({ calories: 2000, protein: 60, fat: 70, carbs: 250 }),
   DAILY_NORMS: { calories: 2000, protein: 60, fat: 70, carbs: 250 },
+}));
+
+// Mock config
+vi.mock('../config/index.js', () => ({
+  getConfig: vi.fn(() => ({ superAdminId: 275641346 })),
+}));
+
+// Mock tips
+vi.mock('./tips.js', () => ({
+  getRandomTip: vi.fn().mockResolvedValue(null),
 }));
 
 // Mock accessControl

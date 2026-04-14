@@ -2,7 +2,6 @@ import { prisma } from '../db/index.js';
 
 const DEFAULT_TIPS = [
   '✏️ Если что-то записано неточно — откройте бота, нажмите «Открыть» и отредактируйте запись.',
-  '🎯 Настройте личные цели КБЖУ — откройте приложение (кнопка «Открыть») → Профиль.',
 ];
 
 export async function getRandomTip(): Promise<string | null> {
