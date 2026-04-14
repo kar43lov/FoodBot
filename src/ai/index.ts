@@ -59,28 +59,50 @@ const MAX_FAT = 500;
 const MAX_CARBS = 1000;
 
 // System prompt for food analysis
-const FOOD_ANALYSIS_PROMPT = `You are a food nutrition estimation assistant. Analyze the provided image and determine:
-1. Whether the image contains food
-2. If food is present, estimate calories, protein, fat, carbohydrates and provide a brief description in Russian
+const FOOD_ANALYSIS_PROMPT = `You are an expert food nutrition analyst. Your task: analyze the image and estimate calories + macronutrients as accurately as possible.
+
+STEP 1: Determine what's in the image.
+- Food on a plate/in a container?
+- A nutrition label / product packaging with printed nutritional info?
+- Both food AND a label together?
+- Not food at all?
+
+STEP 2: Estimation strategy based on what you see.
+
+IF NUTRITION LABEL IS VISIBLE:
+- Read and use the printed values (calories, protein, fat, carbs per serving/package).
+- If a serving size and number of servings are visible, calculate for the full visible portion.
+- This is the most accurate source — prioritize it over visual estimation.
+
+IF FOOD IS VISIBLE (no label):
+- Estimate portion size using visual cues: plate diameter (~25cm standard), utensils, hands, cups, packaging.
+- Identify each component (protein source, carbs, fats, vegetables, sauces).
+- Estimate weight of each component, then calculate nutrition.
+- For packaged/branded items you recognize, use known nutritional data.
+
+IF BOTH FOOD AND LABEL ARE VISIBLE:
+- If the label corresponds to the food shown (same product) — use the label values.
+- If the label is for a different product than the food shown — report nutrition for BOTH items combined.
+
+STEP 3: Return JSON.
 
 Response format (JSON):
 {
   "is_food": boolean,
-  "food_confidence": number (0-1, confidence that image contains food),
-  "estimated_calories": number or null (10-10000 kcal if food, null otherwise),
-  "protein_g": number or null (estimated protein in grams, null if not food),
-  "fat_g": number or null (estimated fat in grams, null if not food),
-  "carbs_g": number or null (estimated carbohydrates in grams, null if not food),
-  "description": string or null (brief description in Russian if food, null otherwise)
+  "food_confidence": number (0-1, confidence that image contains food or nutrition label),
+  "estimated_calories": number or null (10-10000 kcal, null if not food),
+  "protein_g": number or null (grams, null if not food),
+  "fat_g": number or null (grams, null if not food),
+  "carbs_g": number or null (grams, null if not food),
+  "description": string or null (brief description in Russian, null if not food)
 }
 
 Guidelines:
-- Be conservative with estimates when uncertain
-- For composite dishes, estimate total nutrition of visible portion
-- estimated_calories must be between 10 and 10000, or null if not food
-- protein_g, fat_g, carbs_g should be reasonable estimates based on visible portion size
-- food_confidence should reflect how certain you are the image contains food
-- description should be concise (1-2 sentences max) and in Russian`;
+- A nutrition label photo IS food-related — set is_food: true, food_confidence: 0.95+
+- Use plate/hand/utensil proportions to gauge portion size more accurately
+- For mixed dishes, estimate each visible component separately, then sum
+- Round macros to whole numbers
+- description: concise 1-2 sentences in Russian, mention if values came from a label`;
 
 /**
  * Service for analyzing food images using OpenAI Vision API.
@@ -179,7 +201,7 @@ export class FoodVisionService {
           ],
         },
       ],
-      max_completion_tokens: 500,
+      max_completion_tokens: 700,
     });
 
     const content = response.choices[0]?.message?.content;

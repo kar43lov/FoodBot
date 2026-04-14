@@ -319,7 +319,7 @@ describe('FoodVisionService', () => {
       expect(params).toHaveProperty('model', 'gpt-4o');
       expect(params).toHaveProperty('response_format');
       expect(params.response_format).toEqual({ type: 'json_object' });
-      expect(params).toHaveProperty('max_completion_tokens', 500);
+      expect(params).toHaveProperty('max_completion_tokens', 700);
       expect(params).toHaveProperty('messages');
       expect(Array.isArray(params.messages)).toBe(true);
     });
