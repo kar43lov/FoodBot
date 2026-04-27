@@ -48,17 +48,24 @@ vi.mock('../db/index.js', () => ({
 
 import { prisma } from '../db/index.js';
 
-function createMockCtx(overrides: {
-  chatId?: number;
-  chatType?: string;
-  chatTitle?: string;
-  userId?: number;
-  messageText?: string;
-} = {}) {
+function createMockCtx(
+  overrides: {
+    chatId?: number;
+    chatType?: string;
+    chatTitle?: string;
+    userId?: number;
+    messageText?: string;
+  } = {}
+) {
   return {
-    chat: overrides.chatId !== undefined
-      ? { id: overrides.chatId, type: overrides.chatType ?? 'private', title: overrides.chatTitle }
-      : undefined,
+    chat:
+      overrides.chatId !== undefined
+        ? {
+            id: overrides.chatId,
+            type: overrides.chatType ?? 'private',
+            title: overrides.chatTitle,
+          }
+        : undefined,
     from: overrides.userId !== undefined ? { id: overrides.userId } : undefined,
     message: overrides.messageText !== undefined ? { text: overrides.messageText } : undefined,
     reply: vi.fn(),
@@ -445,7 +452,13 @@ describe('Admin Commands', () => {
       });
       mockAc.isSuperAdmin.mockReturnValue(true);
       vi.mocked(prisma.allowedChat.findMany).mockResolvedValue([
-        { id: '1', telegramChatId: BigInt(-100111), title: 'Group 1', addedByUserId: BigInt(1), createdAt: new Date() },
+        {
+          id: '1',
+          telegramChatId: BigInt(-100111),
+          title: 'Group 1',
+          addedByUserId: BigInt(1),
+          createdAt: new Date(),
+        },
       ]);
       vi.mocked(prisma.allowedUser.findMany).mockResolvedValue([
         { id: '2', telegramUserId: BigInt(222), addedByUserId: BigInt(1), createdAt: new Date() },

@@ -885,7 +885,9 @@ export function registerApiRoutes(
         calories: caloriesEstimated,
       });
 
-      const mealWithUser = meal as typeof meal & { user: { firstName: string; username: string | null } };
+      const mealWithUser = meal as typeof meal & {
+        user: { firstName: string; username: string | null };
+      };
 
       return reply.status(201).send({
         id: mealWithUser.id,
@@ -918,7 +920,10 @@ export function registerApiRoutes(
         type: 'object',
         required: ['photo'],
         properties: {
-          photo: { type: 'string', description: 'Base64-encoded image data (without data: prefix)' },
+          photo: {
+            type: 'string',
+            description: 'Base64-encoded image data (without data: prefix)',
+          },
         },
       },
       response: {
@@ -1309,10 +1314,7 @@ export function registerApiRoutes(
         },
       },
     },
-    handler: async (
-      request: FastifyRequest<{ Body: ProfileGoalsBody }>,
-      reply: FastifyReply
-    ) => {
+    handler: async (request: FastifyRequest<{ Body: ProfileGoalsBody }>, reply: FastifyReply) => {
       if (!request.user?.userId) {
         return reply.status(401).send({ error: 'Unauthorized' });
       }

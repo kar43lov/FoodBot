@@ -17,14 +17,19 @@ vi.mock('./accessControl.js', () => {
 
 import { getAccessControl } from './accessControl.js';
 
-function createMockCtx(overrides: {
-  chatId?: number;
-  chatType?: string;
-  userId?: number;
-  messageText?: string;
-} = {}) {
+function createMockCtx(
+  overrides: {
+    chatId?: number;
+    chatType?: string;
+    userId?: number;
+    messageText?: string;
+  } = {}
+) {
   return {
-    chat: overrides.chatId !== undefined ? { id: overrides.chatId, type: overrides.chatType ?? 'private' } : undefined,
+    chat:
+      overrides.chatId !== undefined
+        ? { id: overrides.chatId, type: overrides.chatType ?? 'private' }
+        : undefined,
     from: overrides.userId !== undefined ? { id: overrides.userId } : undefined,
     message: overrides.messageText !== undefined ? { text: overrides.messageText } : undefined,
   } as any;
@@ -101,7 +106,12 @@ describe('accessGuard', () => {
   });
 
   it('should pass admin commands from superadmin even in unallowed chat', async () => {
-    const ctx = createMockCtx({ chatId: -999, chatType: 'group', userId: 111, messageText: '/allowchat' });
+    const ctx = createMockCtx({
+      chatId: -999,
+      chatType: 'group',
+      userId: 111,
+      messageText: '/allowchat',
+    });
     vi.mocked(mockAc.canAccess).mockReturnValue(false);
     vi.mocked(mockAc.isSuperAdmin).mockReturnValue(true);
 
@@ -111,7 +121,12 @@ describe('accessGuard', () => {
   });
 
   it('should pass admin commands from manager even in unallowed chat', async () => {
-    const ctx = createMockCtx({ chatId: -999, chatType: 'group', userId: 333, messageText: '/allowchat' });
+    const ctx = createMockCtx({
+      chatId: -999,
+      chatType: 'group',
+      userId: 333,
+      messageText: '/allowchat',
+    });
     vi.mocked(mockAc.canAccess).mockReturnValue(false);
     vi.mocked(mockAc.isSuperAdmin).mockReturnValue(false);
     vi.mocked(mockAc.isManager).mockReturnValue(true);
@@ -122,7 +137,12 @@ describe('accessGuard', () => {
   });
 
   it('should NOT pass admin commands from regular user', async () => {
-    const ctx = createMockCtx({ chatId: -999, chatType: 'group', userId: 555, messageText: '/allowchat' });
+    const ctx = createMockCtx({
+      chatId: -999,
+      chatType: 'group',
+      userId: 555,
+      messageText: '/allowchat',
+    });
     vi.mocked(mockAc.canAccess).mockReturnValue(false);
     vi.mocked(mockAc.isSuperAdmin).mockReturnValue(false);
     vi.mocked(mockAc.isManager).mockReturnValue(false);

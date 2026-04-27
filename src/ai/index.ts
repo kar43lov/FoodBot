@@ -58,6 +58,33 @@ const MAX_PROTEIN = 500;
 const MAX_FAT = 500;
 const MAX_CARBS = 1000;
 
+// System prompt for correction (when user replies to bot message with adjustments)
+const FOOD_CORRECTION_PROMPT = `You are an expert food nutrition analyst. The user is correcting a previous estimate you made.
+
+You will receive:
+1. The PREVIOUS estimate (calories, protein, fat, carbs, description) — what you (or another model) previously calculated.
+2. The user's CORRECTION — free-form text and/or a new image (e.g. a nutrition label, a clearer photo, a different angle, or just text like "это две порции, не одна" / "там был ещё хлеб").
+
+Your job: produce a NEW best-effort estimate that respects the user's correction. Treat the user as the ground truth for facts they state directly (portion size, ingredients, weight, brand). When they don't override a value, you may keep the previous one if it still makes sense.
+
+If the user provides a new image with a nutrition label — read it and prefer those values.
+If the user only adjusts one aspect (e.g. portion count) — scale the macros accordingly.
+If the user clarifies the dish — recompute everything from scratch using the clarification.
+
+Response format (JSON, same as initial analysis):
+{
+  "is_food": boolean,
+  "food_confidence": number (0-1),
+  "estimated_calories": number or null,
+  "protein_g": number or null,
+  "fat_g": number or null,
+  "carbs_g": number or null,
+  "description": string or null (concise 1-2 sentences in Russian, mention what was corrected)
+}
+
+Always set is_food: true and food_confidence: 0.95+ unless the user explicitly says it's not food.
+Round macros to whole numbers.`;
+
 // System prompt for food analysis
 const FOOD_ANALYSIS_PROMPT = `You are an expert food nutrition analyst. Your task: analyze the image and estimate calories + macronutrients as accurately as possible.
 
@@ -174,6 +201,146 @@ export class FoodVisionService {
   }
 
   /**
+   * Re-analyzes a previous estimate using user's correction.
+   * Accepts free-form correction text and optionally a new image.
+   * Falls back to the previous estimate if the AI call fails.
+   */
+  async correct(
+    previous: {
+      calories: number | null;
+      protein: number | null;
+      fat: number | null;
+      carbs: number | null;
+      description: string | null;
+    },
+    correctionText: string,
+    newImageBuffer?: Buffer
+  ): Promise<FoodAnalysisResult> {
+    this.logger.debug(
+      { hasNewImage: Boolean(newImageBuffer), textLength: correctionText.length },
+      'Starting food correction'
+    );
+
+    let lastError: Error | undefined;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const result = await this.performCorrection(previous, correctionText, newImageBuffer);
+        this.logger.info(
+          { calories: result.estimated_calories, confidence: result.food_confidence },
+          'Food correction completed'
+        );
+        return result;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        this.logger.warn(
+          { attempt, maxRetries: MAX_RETRIES, error: lastError.message },
+          'Food correction attempt failed'
+        );
+
+        if (attempt < MAX_RETRIES) {
+          await this.sleep(this.calculateBackoffDelay(attempt));
+        }
+      }
+    }
+
+    this.logger.error(
+      { error: lastError?.message },
+      'Food correction failed, returning previous as fallback'
+    );
+    return {
+      is_food: true,
+      food_confidence: 1,
+      estimated_calories: previous.calories,
+      protein_g: previous.protein,
+      fat_g: previous.fat,
+      carbs_g: previous.carbs,
+      description: previous.description,
+    };
+  }
+
+  private async performCorrection(
+    previous: {
+      calories: number | null;
+      protein: number | null;
+      fat: number | null;
+      carbs: number | null;
+      description: string | null;
+    },
+    correctionText: string,
+    newImageBuffer?: Buffer
+  ): Promise<FoodAnalysisResult> {
+    const userContent: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [];
+
+    const previousJson = JSON.stringify(
+      {
+        estimated_calories: previous.calories,
+        protein_g: previous.protein,
+        fat_g: previous.fat,
+        carbs_g: previous.carbs,
+        description: previous.description,
+      },
+      null,
+      2
+    );
+
+    userContent.push({
+      type: 'text',
+      text: `PREVIOUS estimate:\n${previousJson}\n\nUSER CORRECTION:\n${correctionText || '(no text — see new image)'}`,
+    });
+
+    if (newImageBuffer) {
+      const base64Image = newImageBuffer.toString('base64');
+      userContent.push({
+        type: 'image_url',
+        image_url: {
+          url: `data:image/jpeg;base64,${base64Image}`,
+          detail: 'low',
+        },
+      });
+    }
+
+    const response = await this.openai.chat.completions.create({
+      model: this.model,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: FOOD_CORRECTION_PROMPT },
+        { role: 'user', content: userContent },
+      ],
+      max_completion_tokens: 700,
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new FoodAnalysisError('Empty response from OpenAI (correction)');
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      throw new FoodAnalysisError(`Failed to parse correction response as JSON: ${content}`);
+    }
+
+    const validated = FoodAnalysisResponseSchema.safeParse(parsed);
+    if (!validated.success) {
+      throw new FoodAnalysisError(`Invalid correction response: ${validated.error.message}`);
+    }
+
+    const result = validated.data;
+
+    if (result.estimated_calories !== null) {
+      result.estimated_calories = this.clampCalories(result.estimated_calories);
+    }
+    if (result.protein_g !== null)
+      result.protein_g = Math.min(MAX_PROTEIN, Math.round(result.protein_g));
+    if (result.fat_g !== null) result.fat_g = Math.min(MAX_FAT, Math.round(result.fat_g));
+    if (result.carbs_g !== null) result.carbs_g = Math.min(MAX_CARBS, Math.round(result.carbs_g));
+
+    return result;
+  }
+
+  /**
    * Performs the actual OpenAI API call for image analysis.
    */
   private async performAnalysis(imageBuffer: Buffer): Promise<FoodAnalysisResult> {
@@ -251,10 +418,8 @@ export class FoodVisionService {
     if (result.is_food) {
       if (result.protein_g !== null)
         result.protein_g = Math.min(MAX_PROTEIN, Math.round(result.protein_g));
-      if (result.fat_g !== null)
-        result.fat_g = Math.min(MAX_FAT, Math.round(result.fat_g));
-      if (result.carbs_g !== null)
-        result.carbs_g = Math.min(MAX_CARBS, Math.round(result.carbs_g));
+      if (result.fat_g !== null) result.fat_g = Math.min(MAX_FAT, Math.round(result.fat_g));
+      if (result.carbs_g !== null) result.carbs_g = Math.min(MAX_CARBS, Math.round(result.carbs_g));
     }
 
     return result;

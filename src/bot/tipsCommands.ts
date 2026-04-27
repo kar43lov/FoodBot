@@ -74,9 +74,7 @@ export async function handleTipsCallback(ctx: Context): Promise<void> {
   if (data === 'tip_add') {
     pendingAction.set(userId, { action: 'add' });
     await ctx.answerCallbackQuery();
-    await ctx.reply(
-      '✏️ Отправьте текст новой подсказки.\n\nДля отмены отправьте /tips'
-    );
+    await ctx.reply('✏️ Отправьте текст новой подсказки.\n\nДля отмены отправьте /tips');
     return;
   }
 
@@ -108,7 +106,9 @@ export async function handleTipsCallback(ctx: Context): Promise<void> {
       if (ctx.callbackQuery?.message) {
         try {
           await ctx.deleteMessage();
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
       await showTipsList(ctx);
     } catch {
@@ -125,7 +125,9 @@ export async function handleTipsCallback(ctx: Context): Promise<void> {
       if (ctx.callbackQuery?.message) {
         try {
           await ctx.deleteMessage();
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
       await showTipsList(ctx);
     } catch {
@@ -139,7 +141,9 @@ export async function handleTipsCallback(ctx: Context): Promise<void> {
     if (ctx.callbackQuery?.message) {
       try {
         await ctx.deleteMessage();
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
     await showTipsList(ctx);
     return;

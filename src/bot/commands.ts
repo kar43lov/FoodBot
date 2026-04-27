@@ -28,9 +28,7 @@ export async function handleStartCommand(ctx: Context): Promise<void> {
 
   // Check if user has any access
   const hasPrivateAccess =
-    isSuperAdmin ||
-    isManager ||
-    (userId !== undefined && ac.isUserAllowed(BigInt(userId)));
+    isSuperAdmin || isManager || (userId !== undefined && ac.isUserAllowed(BigInt(userId)));
   const inAllowedGroup =
     chatType !== 'private' && chatId !== undefined && ac.isChatAllowed(BigInt(chatId));
   const hasAccess = hasPrivateAccess || inAllowedGroup;
@@ -68,12 +66,13 @@ export async function handleStartCommand(ctx: Context): Promise<void> {
       const superAdminUser = await prisma.user.findUnique({
         where: { telegramUserId: BigInt(config.superAdminId) },
       });
-      const managers = await prisma.manager.findMany() ?? [];
-      const managerUsers = managers.length > 0
-        ? await prisma.user.findMany({
-            where: { telegramUserId: { in: managers.map((m) => m.telegramUserId) } },
-          })
-        : [];
+      const managers = (await prisma.manager.findMany()) ?? [];
+      const managerUsers =
+        managers.length > 0
+          ? await prisma.user.findMany({
+              where: { telegramUserId: { in: managers.map((m) => m.telegramUserId) } },
+            })
+          : [];
 
       const contacts: string[] = [];
       if (superAdminUser?.username) contacts.push(`@${superAdminUser.username}`);
@@ -130,8 +129,15 @@ export async function handleStartCommand(ctx: Context): Promise<void> {
     `/today, /myweek, /project, /setadmin\n` +
     `+ отправка фото еды`;
 
+  const botName = getConfig().bot.name;
   text +=
-    `\n\n🎯 Настройте личные цели КБЖУ — откройте приложение (кнопка «Открыть») → Профиль`;
+    `\n\n📝 Как редактировать записи:\n` +
+    `1. Откройте бот в личке (нажмите на @${botName}, затем «Запустить»)\n` +
+    `2. Внизу справа от поля ввода — кнопка «Открыть»\n` +
+    `3. В списке выберите запись → «Редактировать»\n` +
+    `Там же можно удалять записи и добавлять вручную (без фото).\n` +
+    `\n💬 Быстрая правка прямо в чате: ответьте (reply) на сообщение бота с расчётом — текстом («это 2 порции», «забыл хлеб») или новым фото. Бот пересчитает.\n` +
+    `\n🎯 Личные цели КБЖУ — там же в Web App, вкладка «Профиль».`;
 
   await ctx.reply(text);
 }
@@ -149,9 +155,7 @@ export async function handleHelpCommand(ctx: Context): Promise<void> {
   const isSuperAdmin = userId !== undefined && ac.isSuperAdmin(userId);
   const isManager = userId !== undefined && ac.isManager(BigInt(userId));
   const hasPrivateAccess =
-    isSuperAdmin ||
-    isManager ||
-    (userId !== undefined && ac.isUserAllowed(BigInt(userId)));
+    isSuperAdmin || isManager || (userId !== undefined && ac.isUserAllowed(BigInt(userId)));
   const inAllowedGroup =
     chatType !== 'private' && chatId !== undefined && ac.isChatAllowed(BigInt(chatId));
 
@@ -171,7 +175,9 @@ export async function handleHelpCommand(ctx: Context): Promise<void> {
     `/myweek — Статистика за неделю\n` +
     `/project — Информация о проекте/группе\n` +
     `/setadmin @username — Назначить админа группы\n\n` +
-    `📸 Просто отправь фото еды, чтобы записать калории!`;
+    `📸 Отправьте фото еды — запишу калории и КБЖУ.\n\n` +
+    `💬 Если расчёт неверный: ответьте (reply) на моё сообщение текстом или новым фото — пересчитаю.\n\n` +
+    `📝 Редактировать/удалять записи: откройте бот в личке → кнопка «Открыть» внизу → выберите запись.`;
 
   if (isManager || isSuperAdmin) {
     text +=
@@ -222,10 +228,8 @@ function shortDesc(desc: string | null): string {
 
 function getTodayTip(totalCalories: number): string {
   if (totalCalories === 0) return '';
-  if (totalCalories < 1200)
-    return '💡 Маловато калорий — не забывай про полноценные приёмы пищи.';
-  if (totalCalories > 2500)
-    return '💡 Калораж выше среднего — попробуй сбалансировать ужин.';
+  if (totalCalories < 1200) return '💡 Маловато калорий — не забывай про полноценные приёмы пищи.';
+  if (totalCalories > 2500) return '💡 Калораж выше среднего — попробуй сбалансировать ужин.';
   return '💡 Хороший баланс — так держать!';
 }
 
@@ -236,8 +240,7 @@ function getWeekTip(avgCalories: number, daysTracked: number, totalDays: number)
       `Записи есть только за ${daysTracked} из ${totalDays} дней — старайся фиксировать каждый день.`
     );
   if (avgCalories < 1200) parts.push('Средний калораж низковат — следи за питанием.');
-  else if (avgCalories > 2500)
-    parts.push('Средний калораж высоковат — обрати внимание на порции.');
+  else if (avgCalories > 2500) parts.push('Средний калораж высоковат — обрати внимание на порции.');
   else parts.push('Средний калораж в норме — отличная работа!');
   return '💡 ' + parts.join(' ');
 }
@@ -257,8 +260,7 @@ function formatMacroBalance(
   totalCarbs: number,
   norms: NutritionNorms = DAILY_NORMS
 ): string {
-  const statusIcon = (s: MacroStatus) =>
-    s === 'deficit' ? '↓' : s === 'excess' ? '↑' : '✓';
+  const statusIcon = (s: MacroStatus) => (s === 'deficit' ? '↓' : s === 'excess' ? '↑' : '✓');
   const ps = getMacroStatus(totalProtein, norms.protein);
   const fs = getMacroStatus(totalFat, norms.fat);
   const cs = getMacroStatus(totalCarbs, norms.carbs);
@@ -271,9 +273,21 @@ function formatMacroBalance(
 
 interface PersonData {
   name: string;
-  todayMeals: Array<{ description: string | null; calories: number; protein: number; fat: number; carbs: number }>;
+  todayMeals: Array<{
+    description: string | null;
+    calories: number;
+    protein: number;
+    fat: number;
+    carbs: number;
+  }>;
   todayTotal: { calories: number; protein: number; fat: number; carbs: number };
-  historyDays: Array<{ date: string; calories: number; protein: number; fat: number; carbs: number }>;
+  historyDays: Array<{
+    date: string;
+    calories: number;
+    protein: number;
+    fat: number;
+    carbs: number;
+  }>;
 }
 
 async function callOpenAI(prompt: string, systemPrompt: string, maxTokens = 200): Promise<string> {
@@ -321,7 +335,10 @@ async function loadUserHistory(
     orderBy: { recordedAt: 'asc' },
   });
 
-  const byDay = new Map<string, { calories: number; protein: number; fat: number; carbs: number }>();
+  const byDay = new Map<
+    string,
+    { calories: number; protein: number; fat: number; carbs: number }
+  >();
   for (const e of entries) {
     const d = e.recordedAt;
     const key = `${d.getDate()}.${d.getMonth() + 1}`;
@@ -341,13 +358,22 @@ async function generatePersonRecommendation(
   norms: NutritionNorms = DAILY_NORMS
 ): Promise<string> {
   const mealsList = person.todayMeals
-    .map((m) => `${m.description ?? 'Без описания'}: ${m.calories} ккал (Б${m.protein} Ж${m.fat} У${m.carbs})`)
+    .map(
+      (m) =>
+        `${m.description ?? 'Без описания'}: ${m.calories} ккал (Б${m.protein} Ж${m.fat} У${m.carbs})`
+    )
     .join('\n');
 
   const t = person.todayTotal;
-  const historyStr = person.historyDays.length > 0
-    ? person.historyDays.map((d) => `${d.date}: ${d.calories} ккал (Б${Math.round(d.protein)} Ж${Math.round(d.fat)} У${Math.round(d.carbs)})`).join('\n')
-    : 'Нет данных за предыдущие дни';
+  const historyStr =
+    person.historyDays.length > 0
+      ? person.historyDays
+          .map(
+            (d) =>
+              `${d.date}: ${d.calories} ккал (Б${Math.round(d.protein)} Ж${Math.round(d.fat)} У${Math.round(d.carbs)})`
+          )
+          .join('\n')
+      : 'Нет данных за предыдущие дни';
 
   const prompt =
     `Участник: ${person.name}\n` +
@@ -369,10 +395,7 @@ async function generatePersonRecommendation(
   return callOpenAI(prompt, systemPrompt, 100);
 }
 
-async function generateGroupSummary(
-  people: PersonData[],
-  grandTotal: number
-): Promise<string> {
+async function generateGroupSummary(people: PersonData[], grandTotal: number): Promise<string> {
   const peopleStr = people
     .map((p) => `${p.name}: ${p.todayTotal.calories} ккал, ${p.todayMeals.length} приёмов`)
     .join('\n');
@@ -409,7 +432,15 @@ export async function buildTodaySummary(projectId: string): Promise<string | nul
   // Group by user
   const byUser = new Map<
     string,
-    { userId: string; name: string; entries: typeof entries; total: number; protein: number; fat: number; carbs: number }
+    {
+      userId: string;
+      name: string;
+      entries: typeof entries;
+      total: number;
+      protein: number;
+      fat: number;
+      carbs: number;
+    }
   >();
   for (const e of entries) {
     const key = e.userId;
@@ -508,7 +539,7 @@ export async function buildTodaySummary(projectId: string): Promise<string | nul
   if (usersWithoutGoals.length > 0) {
     lines.push(
       `\n🎯 ${usersWithoutGoals.join(', ')} — для персональных рекомендаций ` +
-      `перейдите в бот → нажмите «Открыть» → Профиль → укажите свои данные.`
+        `перейдите в бот → нажмите «Открыть» → Профиль → укажите свои данные.`
     );
   }
 
@@ -536,7 +567,17 @@ export async function buildWeekSummary(projectId: string): Promise<string | null
     string,
     {
       name: string;
-      byDay: Map<string, { dayName: string; calories: number; protein: number; fat: number; carbs: number; meals: string[] }>;
+      byDay: Map<
+        string,
+        {
+          dayName: string;
+          calories: number;
+          protein: number;
+          fat: number;
+          carbs: number;
+          meals: string[];
+        }
+      >;
     }
   >();
 
@@ -723,10 +764,7 @@ export async function handleTodayCommand(ctx: Context): Promise<void> {
 
   const tip = getTodayTip(totalCalories);
   await ctx.reply(
-    `📊 Статистика за сегодня:\n\n` +
-      `${entriesList}\n\n` +
-      `${footer}` +
-      (tip ? `\n\n${tip}` : '')
+    `📊 Статистика за сегодня:\n\n` + `${entriesList}\n\n` + `${footer}` + (tip ? `\n\n${tip}` : '')
   );
 }
 

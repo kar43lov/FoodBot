@@ -25,6 +25,7 @@ import {
 } from './adminCommands.js';
 import { registerApiRoutes } from '../api/index.js';
 import { handleTipsCommand, handleTipsCallback, handleTipsTextInput } from './tipsCommands.js';
+import { tryHandleReplyCorrection } from './replyHandler.js';
 
 /**
  * Custom bot context with additional properties.
@@ -104,12 +105,20 @@ export function createBot(config: Config, logger: pino.Logger): Bot<BotContext> 
 
   // Text input handler for tips add/edit (must be before photo handler)
   bot.on('message:text', async (ctx, next) => {
-    const handled = await handleTipsTextInput(ctx);
-    if (!handled) await next();
+    const tipsHandled = await handleTipsTextInput(ctx);
+    if (tipsHandled) return;
+
+    // Try to interpret as a reply-correction to a previous food entry
+    const correctionHandled = await tryHandleReplyCorrection(ctx, logger);
+    if (correctionHandled) return;
+
+    await next();
   });
 
-  // Photo handler - process food images
+  // Photo handler - process food images (or correct existing entry on reply)
   bot.on('message:photo', async (ctx) => {
+    const correctionHandled = await tryHandleReplyCorrection(ctx, logger);
+    if (correctionHandled) return;
     await handlePhoto(ctx, logger);
   });
 

@@ -130,6 +130,7 @@ model MealEntry {
   photoFileId       String?         @map("photo_file_id")
   aiConfidence      Float?          @map("ai_confidence")
   needsReview       Boolean         @default(false) @map("needs_review")
+  botMessageId      BigInt?         @map("bot_message_id")
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt         DateTime        @updatedAt @map("updated_at")
 
@@ -138,6 +139,7 @@ model MealEntry {
 
   @@index([projectId, recordedAt])
   @@index([userId, recordedAt])
+  @@index([projectId, botMessageId])
   @@map("meal_entries")
 }
 

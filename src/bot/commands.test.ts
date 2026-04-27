@@ -57,7 +57,7 @@ vi.mock('./nutrition.js', () => ({
 
 // Mock config
 vi.mock('../config/index.js', () => ({
-  getConfig: vi.fn(() => ({ superAdminId: 275641346 })),
+  getConfig: vi.fn(() => ({ superAdminId: 275641346, bot: { name: 'cheatmealday_bot' } })),
 }));
 
 // Mock tips
@@ -203,6 +203,7 @@ describe('Bot Commands', () => {
           photoFileId: null,
           aiConfidence: 0.9,
           needsReview: false,
+          botMessageId: null,
           protein: null,
           fat: null,
           carbs: null,
@@ -220,6 +221,7 @@ describe('Bot Commands', () => {
           photoFileId: null,
           aiConfidence: 0.85,
           needsReview: false,
+          botMessageId: null,
           protein: null,
           fat: null,
           carbs: null,
@@ -293,6 +295,7 @@ describe('Bot Commands', () => {
           photoFileId: null,
           aiConfidence: 0.9,
           needsReview: false,
+          botMessageId: null,
           protein: null,
           fat: null,
           carbs: null,
@@ -310,6 +313,7 @@ describe('Bot Commands', () => {
           photoFileId: null,
           aiConfidence: 0.85,
           needsReview: false,
+          botMessageId: null,
           protein: null,
           fat: null,
           carbs: null,
