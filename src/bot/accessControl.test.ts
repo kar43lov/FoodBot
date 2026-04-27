@@ -39,7 +39,13 @@ describe('AccessControl', () => {
   describe('loadFromDb', () => {
     it('should load allowed chats, users, and managers from DB', async () => {
       vi.mocked(prisma.allowedChat.findMany).mockResolvedValue([
-        { id: '1', telegramChatId: BigInt(-100111), title: 'Test Group', addedByUserId: BigInt(1), createdAt: new Date() },
+        {
+          id: '1',
+          telegramChatId: BigInt(-100111),
+          title: 'Test Group',
+          addedByUserId: BigInt(1),
+          createdAt: new Date(),
+        },
       ]);
       vi.mocked(prisma.allowedUser.findMany).mockResolvedValue([
         { id: '2', telegramUserId: BigInt(222), addedByUserId: BigInt(1), createdAt: new Date() },
@@ -98,7 +104,13 @@ describe('AccessControl', () => {
   describe('canAccess', () => {
     beforeEach(async () => {
       vi.mocked(prisma.allowedChat.findMany).mockResolvedValue([
-        { id: '1', telegramChatId: BigInt(-100111), title: 'Test', addedByUserId: BigInt(1), createdAt: new Date() },
+        {
+          id: '1',
+          telegramChatId: BigInt(-100111),
+          title: 'Test',
+          addedByUserId: BigInt(1),
+          createdAt: new Date(),
+        },
       ]);
       vi.mocked(prisma.allowedUser.findMany).mockResolvedValue([
         { id: '2', telegramUserId: BigInt(222), addedByUserId: BigInt(1), createdAt: new Date() },
@@ -144,7 +156,11 @@ describe('AccessControl', () => {
   describe('addChat', () => {
     it('should add chat to DB and cache', async () => {
       vi.mocked(prisma.allowedChat.create).mockResolvedValue({
-        id: '1', telegramChatId: BigInt(-100222), title: 'New Group', addedByUserId: BigInt(1), createdAt: new Date(),
+        id: '1',
+        telegramChatId: BigInt(-100222),
+        title: 'New Group',
+        addedByUserId: BigInt(1),
+        createdAt: new Date(),
       });
 
       await ac.addChat(BigInt(-100222), 'New Group', BigInt(1));
@@ -160,12 +176,20 @@ describe('AccessControl', () => {
     it('should remove chat from DB and cache', async () => {
       // First add to cache
       vi.mocked(prisma.allowedChat.create).mockResolvedValue({
-        id: '1', telegramChatId: BigInt(-100222), title: 'Group', addedByUserId: BigInt(1), createdAt: new Date(),
+        id: '1',
+        telegramChatId: BigInt(-100222),
+        title: 'Group',
+        addedByUserId: BigInt(1),
+        createdAt: new Date(),
       });
       await ac.addChat(BigInt(-100222), 'Group', BigInt(1));
 
       vi.mocked(prisma.allowedChat.delete).mockResolvedValue({
-        id: '1', telegramChatId: BigInt(-100222), title: 'Group', addedByUserId: BigInt(1), createdAt: new Date(),
+        id: '1',
+        telegramChatId: BigInt(-100222),
+        title: 'Group',
+        addedByUserId: BigInt(1),
+        createdAt: new Date(),
       });
 
       await ac.removeChat(BigInt(-100222));
@@ -180,7 +204,10 @@ describe('AccessControl', () => {
   describe('addUser', () => {
     it('should add user to DB and cache', async () => {
       vi.mocked(prisma.allowedUser.create).mockResolvedValue({
-        id: '1', telegramUserId: BigInt(444), addedByUserId: BigInt(1), createdAt: new Date(),
+        id: '1',
+        telegramUserId: BigInt(444),
+        addedByUserId: BigInt(1),
+        createdAt: new Date(),
       });
 
       await ac.addUser(BigInt(444), BigInt(1));
@@ -195,12 +222,18 @@ describe('AccessControl', () => {
   describe('removeUser', () => {
     it('should remove user from DB and cache', async () => {
       vi.mocked(prisma.allowedUser.create).mockResolvedValue({
-        id: '1', telegramUserId: BigInt(444), addedByUserId: BigInt(1), createdAt: new Date(),
+        id: '1',
+        telegramUserId: BigInt(444),
+        addedByUserId: BigInt(1),
+        createdAt: new Date(),
       });
       await ac.addUser(BigInt(444), BigInt(1));
 
       vi.mocked(prisma.allowedUser.delete).mockResolvedValue({
-        id: '1', telegramUserId: BigInt(444), addedByUserId: BigInt(1), createdAt: new Date(),
+        id: '1',
+        telegramUserId: BigInt(444),
+        addedByUserId: BigInt(1),
+        createdAt: new Date(),
       });
 
       await ac.removeUser(BigInt(444));
@@ -212,7 +245,10 @@ describe('AccessControl', () => {
   describe('addManager', () => {
     it('should add manager to DB and cache', async () => {
       vi.mocked(prisma.manager.create).mockResolvedValue({
-        id: '1', telegramUserId: BigInt(555), addedByUserId: BigInt(1), createdAt: new Date(),
+        id: '1',
+        telegramUserId: BigInt(555),
+        addedByUserId: BigInt(1),
+        createdAt: new Date(),
       });
 
       await ac.addManager(BigInt(555), BigInt(1));
@@ -224,12 +260,18 @@ describe('AccessControl', () => {
   describe('removeManager', () => {
     it('should remove manager from DB and cache', async () => {
       vi.mocked(prisma.manager.create).mockResolvedValue({
-        id: '1', telegramUserId: BigInt(555), addedByUserId: BigInt(1), createdAt: new Date(),
+        id: '1',
+        telegramUserId: BigInt(555),
+        addedByUserId: BigInt(1),
+        createdAt: new Date(),
       });
       await ac.addManager(BigInt(555), BigInt(1));
 
       vi.mocked(prisma.manager.delete).mockResolvedValue({
-        id: '1', telegramUserId: BigInt(555), addedByUserId: BigInt(1), createdAt: new Date(),
+        id: '1',
+        telegramUserId: BigInt(555),
+        addedByUserId: BigInt(1),
+        createdAt: new Date(),
       });
 
       await ac.removeManager(BigInt(555));

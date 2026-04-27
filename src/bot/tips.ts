@@ -18,7 +18,10 @@ export async function getAllTips(): Promise<Array<{ id: string; text: string; ac
   return prisma.tip.findMany({ orderBy: { createdAt: 'asc' } });
 }
 
-export async function addTip(text: string, createdBy: bigint): Promise<{ id: string; text: string }> {
+export async function addTip(
+  text: string,
+  createdBy: bigint
+): Promise<{ id: string; text: string }> {
   return prisma.tip.create({ data: { text, createdBy } });
 }
 

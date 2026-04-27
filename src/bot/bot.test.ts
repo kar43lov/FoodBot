@@ -77,6 +77,14 @@ vi.mock('@grammyjs/runner', () => ({
   sequentialize: vi.fn(() => vi.fn()),
 }));
 
+// Mock config so getConfig() inside commands.ts doesn't try to load env vars
+vi.mock('../config/index.js', () => ({
+  getConfig: vi.fn(() => ({
+    superAdminId: 123456789,
+    bot: { name: 'TestBot', token: 'test', webhookUrl: '', appUrl: '' },
+  })),
+}));
+
 function createMockConfig(): Config {
   return {
     bot: {

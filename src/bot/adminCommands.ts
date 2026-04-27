@@ -16,10 +16,7 @@ function isSuperAdmin(ctx: Context): boolean {
   return getAccessControl().isSuperAdmin(userId);
 }
 
-async function resolveUserId(
-  arg: string,
-  ctx: Context
-): Promise<bigint | null> {
+async function resolveUserId(arg: string, ctx: Context): Promise<bigint | null> {
   if (arg.startsWith('@')) {
     const username = arg.slice(1);
     const user = await prisma.user.findFirst({ where: { username } });

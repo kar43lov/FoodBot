@@ -9,7 +9,13 @@ vi.mock('../db/index.js', () => ({
   },
 }));
 
-import { calculateBMR, calculateTDEE, calculateMacros, getUserNorms, DAILY_NORMS } from './nutrition.js';
+import {
+  calculateBMR,
+  calculateTDEE,
+  calculateMacros,
+  getUserNorms,
+  DAILY_NORMS,
+} from './nutrition.js';
 import { prisma } from '../db/index.js';
 
 const mockPrisma = prisma as unknown as {

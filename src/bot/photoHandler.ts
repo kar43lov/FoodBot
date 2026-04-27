@@ -320,14 +320,18 @@ export async function handlePhoto(ctx: BotContext, logger: pino.Logger): Promise
     if (analysisResult.is_food && analysisResult.estimated_calories) {
       // Food detected - create entry and reply
       const photoFileId = getPhotoFileId(ctx);
-      const { calories, protein, fat, carbs } = await createMealEntry(
-        projectId,
-        userId,
-        analysisResult,
-        photoFileId
-      );
+      const {
+        id: mealId,
+        calories,
+        protein,
+        fat,
+        carbs,
+      } = await createMealEntry(projectId, userId, analysisResult, photoFileId);
 
-      handlerLogger.info({ calories, protein, fat, carbs, projectId, userId }, 'Meal entry created');
+      handlerLogger.info(
+        { mealId, calories, protein, fat, carbs, projectId, userId },
+        'Meal entry created'
+      );
 
       // Format response
       let response = `✅ Записал ~${calories} ккал`;
@@ -337,12 +341,24 @@ export async function handlePhoto(ctx: BotContext, logger: pino.Logger): Promise
       if (analysisResult.description) {
         response += `\n📝 ${analysisResult.description}`;
       }
+      response += `\n\n💬 Не так? Ответьте на это сообщение текстом или новым фото — пересчитаю.`;
 
       const messageId = ctx.message?.message_id;
-      if (messageId) {
-        await ctx.reply(response, { reply_parameters: { message_id: messageId } });
-      } else {
-        await ctx.reply(response);
+      const sent = messageId
+        ? await ctx.reply(response, { reply_parameters: { message_id: messageId } })
+        : await ctx.reply(response);
+
+      // Save bot message id so we can route reply-corrections back to this entry
+      try {
+        await prisma.mealEntry.update({
+          where: { id: mealId },
+          data: { botMessageId: BigInt(sent.message_id) },
+        });
+      } catch (err) {
+        handlerLogger.warn(
+          { error: err instanceof Error ? err.message : String(err), mealId },
+          'Failed to save botMessageId'
+        );
       }
     } else {
       // Not food - set shrug reaction (using 🤷‍♂ which is in allowed emoji list)
