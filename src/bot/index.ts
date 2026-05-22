@@ -1,4 +1,5 @@
-import { Bot, Context, GrammyError, HttpError, webhookCallback } from 'grammy';
+import { Bot, Context, GrammyError, HttpError } from 'grammy';
+import type { Update } from 'grammy/types';
 import { run, sequentialize } from '@grammyjs/runner';
 import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
@@ -41,6 +42,26 @@ export function createBot(config: Config, logger: pino.Logger): Bot<BotContext> 
   // Sequentialize updates by chat to prevent race conditions
   bot.use(sequentialize((ctx) => ctx.chat?.id.toString() ?? ctx.from?.id.toString() ?? ''));
 
+  // Deduplicate update_id — Telegram retries webhook after ~60s timeout if response is slow.
+  // Without this guard, slow OpenAI responses cause the same photo to be processed multiple times.
+  const seenUpdateIds = new Set<number>();
+  const seenUpdateOrder: number[] = [];
+  const MAX_SEEN = 500;
+  bot.use(async (ctx, next) => {
+    const id = ctx.update.update_id;
+    if (seenUpdateIds.has(id)) {
+      logger.warn({ event: 'duplicate_update_skipped', updateId: id, chatId: ctx.chat?.id });
+      return;
+    }
+    seenUpdateIds.add(id);
+    seenUpdateOrder.push(id);
+    if (seenUpdateOrder.length > MAX_SEEN) {
+      const evicted = seenUpdateOrder.shift();
+      if (evicted !== undefined) seenUpdateIds.delete(evicted);
+    }
+    await next();
+  });
+
   // Access control guard — blocks non-whitelisted chats/users
   bot.use(createAccessGuard());
 
@@ -57,6 +78,7 @@ export function createBot(config: Config, logger: pino.Logger): Bot<BotContext> 
     logger.info({
       event: 'update_received',
       updateType,
+      updateId: ctx.update.update_id,
       chatId,
       userId,
       username,
@@ -71,6 +93,7 @@ export function createBot(config: Config, logger: pino.Logger): Bot<BotContext> 
       logger.info({
         event: 'update_processed',
         updateType,
+        updateId: ctx.update.update_id,
         chatId,
         duration,
       });
@@ -200,6 +223,13 @@ export async function createWebhookServer(
   logger: pino.Logger,
   webhookConfig: WebhookConfig = {}
 ): Promise<FastifyInstance> {
+  // grammY's Bot must be initialised before handleUpdate is called directly.
+  // The previous webhookCallback did this lazily; do it eagerly here so both
+  // startWebhook and any direct createWebhookServer caller work the same way.
+  if (!bot.isInited()) {
+    await bot.init();
+  }
+
   const fastify = Fastify({
     logger: false, // Use our pino logger instead
   });
@@ -213,16 +243,63 @@ export async function createWebhookServer(
   });
 
   const webhookPath = webhookConfig.path ?? '/webhook';
+  const expectedSecret = webhookConfig.secretToken;
 
-  // Webhook endpoint - handle secretToken properly for exactOptionalPropertyTypes
-  if (webhookConfig.secretToken) {
-    fastify.post(
-      webhookPath,
-      webhookCallback(bot, 'fastify', { secretToken: webhookConfig.secretToken })
-    );
-  } else {
-    fastify.post(webhookPath, webhookCallback(bot, 'fastify'));
-  }
+  // Track in-flight background handlers so graceful shutdown can wait for them.
+  // We ACK the webhook before processing (to stop Telegram from retrying on slow OpenAI
+  // calls), so on SIGTERM we must drain in-flight handlers ourselves — Telegram won't retry.
+  const inFlight = new Set<Promise<unknown>>();
+  const SHUTDOWN_DRAIN_MS = 30_000;
+
+  fastify.addHook('onClose', async () => {
+    if (inFlight.size === 0) return;
+    logger.info({ event: 'webhook_drain_started', count: inFlight.size });
+    const start = Date.now();
+    let timeoutHandle: NodeJS.Timeout | undefined;
+    const drained = await Promise.race([
+      Promise.allSettled([...inFlight]).then(() => 'done' as const),
+      new Promise<'timeout'>((resolve) => {
+        timeoutHandle = setTimeout(() => resolve('timeout'), SHUTDOWN_DRAIN_MS);
+      }),
+    ]);
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+    logger.info({
+      event: 'webhook_drain_finished',
+      result: drained,
+      remaining: inFlight.size,
+      durationMs: Date.now() - start,
+    });
+  });
+
+  // Respond to Telegram immediately with 200 OK and handle the update in background.
+  // Telegram retries the webhook after ~60s if it doesn't get a response, which used to
+  // cause duplicate processing on slow OpenAI calls. update_id deduplication in the bot
+  // middleware is the second line of defence.
+  fastify.post(webhookPath, async (request, reply) => {
+    if (expectedSecret) {
+      const got = request.headers['x-telegram-bot-api-secret-token'];
+      if (got !== expectedSecret) {
+        await reply.code(401).send();
+        return;
+      }
+    }
+
+    const update = request.body as Update | undefined;
+    await reply.code(200).send();
+
+    if (!update) return;
+
+    const task = bot.handleUpdate(update).catch((err: unknown) => {
+      logger.error({
+        event: 'webhook_handle_update_error',
+        updateId: update.update_id,
+        error: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
+    });
+    inFlight.add(task);
+    void task.finally(() => inFlight.delete(task));
+  });
 
   // Register API routes for production mode
   registerApiRoutes(fastify, config, logger);

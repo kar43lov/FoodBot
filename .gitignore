@@ -41,3 +41,7 @@ coverage/
 
 # ralphex progress logs
 progress*.txt
+
+# Claude Code local settings / scratch
+.claude/settings.local.json
+.claude/tmp/
