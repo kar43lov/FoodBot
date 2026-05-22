@@ -10,6 +10,9 @@ interface MockBot {
   command: ReturnType<typeof vi.fn>;
   on: ReturnType<typeof vi.fn>;
   catch: ReturnType<typeof vi.fn>;
+  handleUpdate: ReturnType<typeof vi.fn>;
+  init: ReturnType<typeof vi.fn>;
+  isInited: ReturnType<typeof vi.fn>;
   api: {
     deleteWebhook: ReturnType<typeof vi.fn>;
     setWebhook: ReturnType<typeof vi.fn>;
@@ -28,6 +31,9 @@ vi.mock('grammy', () => {
         command: vi.fn(),
         on: vi.fn(),
         catch: vi.fn(),
+        handleUpdate: vi.fn().mockResolvedValue(undefined),
+        init: vi.fn().mockResolvedValue(undefined),
+        isInited: vi.fn().mockReturnValue(true),
         api: {
           deleteWebhook: vi.fn().mockResolvedValue(true),
           setWebhook: vi.fn().mockResolvedValue(true),
@@ -169,8 +175,8 @@ describe('Bot Module', () => {
 
       const bot = createBot(config, logger);
 
-      // Should be called 3 times: sequentialize + accessGuard + logging
-      expect(bot.use).toHaveBeenCalledTimes(3);
+      // Should be called 4 times: sequentialize + dedup + accessGuard + logging
+      expect(bot.use).toHaveBeenCalledTimes(4);
     });
 
     it('should register /start command', async () => {
@@ -224,27 +230,56 @@ describe('Bot Module', () => {
     });
 
     it('should register webhook endpoint with custom path', async () => {
-      const { webhookCallback } = await import('grammy');
       const { createBot, createWebhookServer } = await import('./index.js');
 
       const bot = createBot(config, logger);
-      await createWebhookServer(bot, config, logger, {
+      const server = await createWebhookServer(bot, config, logger, {
         path: '/custom-webhook',
       });
 
-      // Verify webhookCallback was called (it's registered for the endpoint)
-      expect(webhookCallback).toHaveBeenCalled();
+      const response = await server.inject({
+        method: 'POST',
+        url: '/custom-webhook',
+        payload: { update_id: 1 },
+      });
+
+      expect(response.statusCode).toBe(200);
+      await server.close();
     });
 
     it('should register webhook endpoint with default path', async () => {
-      const { webhookCallback } = await import('grammy');
       const { createBot, createWebhookServer } = await import('./index.js');
 
       const bot = createBot(config, logger);
-      await createWebhookServer(bot, config, logger);
+      const server = await createWebhookServer(bot, config, logger);
 
-      // Verify webhookCallback was called
-      expect(webhookCallback).toHaveBeenCalled();
+      const response = await server.inject({
+        method: 'POST',
+        url: '/webhook',
+        payload: { update_id: 1 },
+      });
+
+      expect(response.statusCode).toBe(200);
+      await server.close();
+    });
+
+    it('should reject webhook with wrong secret token', async () => {
+      const { createBot, createWebhookServer } = await import('./index.js');
+
+      const bot = createBot(config, logger);
+      const server = await createWebhookServer(bot, config, logger, {
+        secretToken: 'real-secret',
+      });
+
+      const response = await server.inject({
+        method: 'POST',
+        url: '/webhook',
+        headers: { 'x-telegram-bot-api-secret-token': 'wrong' },
+        payload: { update_id: 1 },
+      });
+
+      expect(response.statusCode).toBe(401);
+      await server.close();
     });
   });
 
@@ -254,10 +289,10 @@ describe('Bot Module', () => {
 
       createBot(config, logger);
 
-      // Get the logging middleware (third call to use: sequentialize, accessGuard, logging)
+      // Get the logging middleware (fourth call to use: sequentialize, dedup, accessGuard, logging)
       type MockCall = [unknown];
       const useCalls = mockBotInstance.use.mock.calls as MockCall[];
-      const loggingMiddleware = useCalls[2]?.[0] as (
+      const loggingMiddleware = useCalls[3]?.[0] as (
         ctx: Record<string, unknown>,
         next: () => Promise<void>
       ) => Promise<void>;
