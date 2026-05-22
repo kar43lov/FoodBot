@@ -35,7 +35,8 @@ npm run db:push          # Push schema changes
 npm run db:seed          # Insert test data
 
 # Production deploy
-/pg.deploy               # deploy main to VPS
+/pg.foodbot.deploy           # deploy main to VPS
+/pg.foodbot.deploy develop   # deploy specific branch
 ```
 
 ## Architecture
@@ -75,10 +76,17 @@ prisma/
 
 **Access Control:**
 - `SUPER_ADMIN_ID` in .env — single superadmin, bypasses all checks
-- Middleware chain: sequentialize → accessGuard → logging → commands/handlers
+- Middleware chain: sequentialize → updateId dedup → accessGuard → logging → commands/handlers
 - AccessControl class: in-memory Set cache, loaded from DB at startup
 - Admin commands from superadmin/manager pass through guard even in non-whitelisted chats
 - `ADMIN_COMMANDS` constant in accessGuard.ts — single source of truth for admin command names
+
+**Webhook handling (prod):**
+- Webhook отвечает Telegram **200 OK немедленно**, `bot.handleUpdate` выполняется в фоне. Telegram считает webhook неудачным после ~60s и шлёт retry — синхронный ACK при медленном OpenAI вызывал 5-6× обработку одного фото.
+- `bot.init()` вызывается eagerly в `createWebhookServer` (через `isInited()` guard) — без него `handleUpdate` бросает `Bot not initialized!`.
+- Дедупликация по `update_id` (Set+LRU 500) — защита от копий, накопленных в очереди sequentialize до фикса timeout.
+- `inFlight` Set + Fastify `onClose` hook ждёт background handlers до 30 сек при SIGTERM — чтобы деплой не терял in-flight updates (Telegram больше не ретраит после нашего 200 OK).
+- При изменении webhook handler'а **не возвращайся к синхронному ACK** — это вернёт баг с дубликатами.
 
 **Auth Flow:**
 1. Telegram Login Widget: validates `hash` (HMAC-SHA256 with botToken)
@@ -126,9 +134,11 @@ Optional:
 
 ```bash
 # Из Claude Code
-/pg.deploy              # main branch
-/pg.deploy develop      # specific branch
+/pg.foodbot.deploy              # main branch
+/pg.foodbot.deploy develop      # specific branch
 ```
+
+**Workflow:** работа на `develop` → PR в `develop` → merge → локально merge `develop` → `main --no-ff` → `git push origin main` → `/pg.foodbot.deploy`. Сервер берёт код с `origin/main`.
 
 **Stack:** Node.js 20 + systemd + SQLite + nginx reverse proxy + Let's Encrypt SSL
 

@@ -1,5 +1,8 @@
 # Деплой FoodBot на VPS
 
+> ⚠️ **Устаревший документ (Docker + Caddy + PostgreSQL).**
+> Реальная процедура — `systemd + nginx + SQLite + Node.js` (без Docker, не помещается в 1 GB RAM на `karvpn`). Деплой одной командой: `/pg.foodbot.deploy` (см. `CLAUDE.md` → раздел *Deployment*). Этот файл оставлен как историческая справка для альтернативного сценария Docker-based развёртывания.
+
 ## Требования
 
 - Ubuntu 22.04+ (или Debian 12+)

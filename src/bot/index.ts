@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { Bot, Context, GrammyError, HttpError } from 'grammy';
 import type { Update } from 'grammy/types';
 import { run, sequentialize } from '@grammyjs/runner';
@@ -275,10 +276,16 @@ export async function createWebhookServer(
   // Telegram retries the webhook after ~60s if it doesn't get a response, which used to
   // cause duplicate processing on slow OpenAI calls. update_id deduplication in the bot
   // middleware is the second line of defence.
+  const expectedSecretBuf = expectedSecret ? Buffer.from(expectedSecret) : null;
+
   fastify.post(webhookPath, async (request, reply) => {
-    if (expectedSecret) {
+    if (expectedSecret && expectedSecretBuf) {
       const got = request.headers['x-telegram-bot-api-secret-token'];
-      if (got !== expectedSecret) {
+      if (typeof got !== 'string' || got.length !== expectedSecret.length) {
+        await reply.code(401).send();
+        return;
+      }
+      if (!timingSafeEqual(Buffer.from(got), expectedSecretBuf)) {
         await reply.code(401).send();
         return;
       }
